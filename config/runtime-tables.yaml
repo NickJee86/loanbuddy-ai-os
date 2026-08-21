@@ -1,0 +1,32 @@
+version: 1.0.0
+crm: LoanBuddy CRM V3
+spreadsheet_id: 1V5OWu1TQ9tzB4tBpiG7fs-ad-wJIL4C8BfKl5NHv9RM
+runtime_tables:
+  Runtime_Knowledge:
+    sheet_id: 1198718824
+    source: LoanBuddy_Knowledge_Base
+    filter: Status = Active
+    row_count: 115
+    primary_key: Knowledge ID
+  Runtime_Rules:
+    sheet_id: 753506431
+    source: LoanBuddy_AI_Operating_Rules
+    filter: Status = Active
+    row_count: 117
+    primary_key: Rule ID
+  Runtime_Field_Map:
+    sheet_id: 561456455
+    source: LoanBuddy_AI_CRM_Field_Mapping
+    filter: Status = Active
+    row_count: 45
+    primary_key: Mapping ID
+  Runtime_AI_Tests:
+    sheet_id: 1605742830
+    source: LoanBuddy_AI_Regression_Tests
+    filter: Status = Ready
+    row_count: 69
+    primary_key: Test ID
+sync_verified_at: 2026-08-21T10:02:00+08:00
+security:
+  customer_records_in_runtime_tables: false
+  credentials_in_runtime_tables: false
