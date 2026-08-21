@@ -1,0 +1,35 @@
+version: 1.1.0
+scenario:
+  id: 6974274
+  name: S00 V4 — Unified Knowledge AI Shadow [OFF]
+  status: inactive
+  deployment_role: UAT shadow
+  test_phone: masked
+runtime:
+  spreadsheet: LoanBuddy CRM V3
+  context_sheet: Runtime_AI_Context
+  context_sheet_id: 634876874
+  context_record: ACTIVE
+  knowledge_rows: 115
+  rule_rows: 117
+  field_mapping_rows: 45
+  regression_tests: 69
+ai:
+  extractor_model: gpt-4.1-2025-04-14
+  response_model: gpt-5
+  max_output_tokens: 2500
+  structured_output: json_object
+behavior:
+  answer_all_questions_first: true
+  maximum_primary_questions_per_reply: 1
+  preserve_existing_fields: true
+  ask_received_information_again: false
+  missing_knowledge_action: escalate
+  blank_reply_allowed: false
+locks:
+  legacy_s03: must_remain_off
+  jomkaki_scope: prohibited
+release_gate:
+  - shadow UAT only
+  - no production activation before regression tests
+  - current S02B welcome path remains active
