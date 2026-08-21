@@ -1,0 +1,35 @@
+release: 1.0.0
+recorded_at: 2026-08-21T09:37:54+08:00
+environment: production
+make:
+  team_id: 1855905
+  scenarios:
+    S00:
+      status: active
+      purpose: WhatsApp inbound gateway
+    S01B:
+      status: active
+      schedule: every_1_minute
+      purpose: WhatsApp lead capture
+    S02B:
+      scenario_id: 6323186
+      status: active
+      schedule: every_1_minute
+      model: gpt-5
+      max_output_tokens: 1000
+      purpose: new AI welcome bridge
+    S03:
+      status: inactive
+      lock: legacy_ai_must_remain_off
+crm:
+  spreadsheet_title: LoanBuddy CRM V3
+  protected_data:
+    - customer PII
+    - credentials
+    - access tokens
+verification:
+  test_phone_masked: "6016****888"
+  last_outbox_status: Sent
+  last_sent_at: 2026-08-21T09:37:54+08:00
+known_gap:
+  - Full multi-turn AI engine still requires versioned implementation and UAT.
