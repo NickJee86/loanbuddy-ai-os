@@ -1,0 +1,22 @@
+version: 1.0.0
+notion:
+  knowledge_base:
+    database: LoanBuddy_Knowledge_Base
+    data_source: collection://4252f627-9f2c-44e5-a628-28b21f17a6c7
+    runtime_filter: Status = Active
+  operating_rules:
+    database: LoanBuddy_AI_Operating_Rules
+    data_source: collection://498b52d2-4c5a-44d3-b3e2-a8953758826e
+    runtime_filter: Status = Active
+  crm_field_mapping:
+    database: LoanBuddy_AI_CRM_Field_Mapping
+    data_source: collection://9f2f740c-4c4c-48f0-8145-4b3c6f4f0c9a
+    runtime_filter: Status = Active
+  regression_tests:
+    database: LoanBuddy_AI_Regression_Tests
+    data_source: collection://fddfc17d-4c00-49bb-a138-43630d5ee453
+    execution_filter: Status = Ready
+policy:
+  inactive_or_draft_content_must_not_reach_runtime: true
+  conflicting_content_requires_review: true
+  source_of_truth: GitHub release plus approved Notion records

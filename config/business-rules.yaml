@@ -1,0 +1,38 @@
+version: 1.0.0
+company:
+  name: LoanBuddy
+  type: KPKT licensed money lender
+product:
+  name: Personal Loan
+  interest:
+    type: fixed
+    rate_per_month: 1.5%
+coverage:
+  included:
+    - West Malaysia
+    - Sarawak
+  excluded:
+    - Sabah
+eligibility:
+  approval_guarantee: prohibited
+  target: fixed salary employees
+documents:
+  required:
+    - IC front
+    - IC back
+    - latest payslip
+    - 3 months bank statements
+  optional:
+    - EPF statement
+privacy:
+  prohibited_requests:
+    - OTP
+    - PIN
+    - password
+    - CVV
+    - ATM card possession
+    - account access
+  sensitive_upload: official secure upload channel only
+routing:
+  unresolved_or_policy_conflict: human review
+  documents_complete: LMS
