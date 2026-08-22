@@ -1,0 +1,33 @@
+{
+  "name": "loanbuddy-crm-readonly",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "NODE_OPTIONS='--require=./scripts/memory-shim.cjs' next build",
+    "start": "next start",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "test:access": "node --test tests/access-control.test.mjs",
+    "validate:artifact": "bash scripts/validate-artifact.sh",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
+  },
+  "dependencies": {
+    "next": "^16.2.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.2.1",
+    "@types/node": "^22.19.19",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.6",
+    "tailwindcss": "4.2.1",
+    "typescript": "^5.9.3"
+  },
+  "type": "module"
+}
