@@ -4109,12 +4109,12 @@ function FollowUpSettingsManagement({ user }: { user?: CrmUser }) {
             <label key={key}>
               <input type="checkbox" checked={settings[key]}
                 disabled={!canManage || busy || key === "stopOnReply" || key === "stopOnOptOut"}
-                onChange={(event) => update(key, event.target.checked)} />
+                                onChange={(event) => update(key, event.target.checked)} />
               <span><strong>{label}</strong><small>{copy}</small></span>
             </label>
           ))}
         </div>
-              <div className="follow-up-business-window">
+        <div className="follow-up-business-window">
           <div><strong>Approved sending window</strong><small>Asia/Kuala_Lumpur (MYT). S09 holds automated reminders outside this window.</small></div>
           <label><span>Start</span><input type="time" value={settings.businessStart} disabled={!canManage || busy || !settings.businessHoursOnly} onChange={(event) => update("businessStart", event.target.value)} /></label>
           <label><span>End</span><input type="time" value={settings.businessEnd} disabled={!canManage || busy || !settings.businessHoursOnly} onChange={(event) => update("businessEnd", event.target.value)} /></label>
