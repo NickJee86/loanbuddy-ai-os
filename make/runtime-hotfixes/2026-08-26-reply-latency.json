@@ -1,0 +1,36 @@
+{
+  "scenario_id": 6496076,
+  "scenario_name": "S00 V4 — Unified Knowledge AI Production",
+  "deployed_at": "2026-08-26T10:24:00+08:00",
+  "status": "DEPLOYED",
+  "diagnosis": {
+    "observed_run_id": "17c23e28f89c47aaae3839381a7252df",
+    "total_duration_seconds": 24,
+    "state_extraction_seconds": 2.0,
+    "knowledge_lookup_seconds": 0.5,
+    "reply_composition_seconds": 19.2,
+    "whatsapp_send_seconds": 0.9,
+    "bottleneck": "AI — Compose Reply from State + Knowledge + Rules"
+  },
+  "changes": {
+    "reply_model": {
+      "from": "gpt-5",
+      "to": "gpt-5-mini"
+    },
+    "reply_max_tokens": {
+      "from": 2500,
+      "to": 900
+    },
+    "preserved": [
+      "production prompts",
+      "runtime knowledge",
+      "conversation state",
+      "anti-repetition rules",
+      "eligibility guardrails",
+      "branch-address rules",
+      "JSON response contract"
+    ],
+    "schedule": "Immediately as data arrives",
+    "scenario_active": true
+  }
+}
