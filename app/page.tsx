@@ -4097,12 +4097,7 @@ function FollowUpSettingsManagement({ user }: { user?: CrmUser }) {
           {([
             ["informationIncomplete", "Incomplete information", "Follow up when application questions are unfinished."],
             ["documentsIncomplete", "Incomplete documents", "Follow up only for documents genuinely still missing."],
-                    <div className="follow-up-business-window">
-          <div><strong>Approved sending window</strong><small>Asia/Kuala_Lumpur (MYT). S09 holds automated reminders outside this window.</small></div>
-          <label><span>Start</span><input type="time" value={settings.businessStart} disabled={!canManage || busy || !settings.businessHoursOnly} onChange={(event) => update("businessStart", event.target.value)} /></label>
-          <label><span>End</span><input type="time" value={settings.businessEnd} disabled={!canManage || busy || !settings.businessHoursOnly} onChange={(event) => update("businessEnd", event.target.value)} /></label>
-        </div>
-["businessHoursOnly", "Business hours only", "Hold reminders outside approved operating hours."],
+                    ["businessHoursOnly", "Business hours only", "Hold reminders outside approved operating hours."],
             ["stopOnReply", "Stop on customer reply", "Mandatory — prevents messages after the customer responds."],
             ["stopOnOptOut", "Stop on pause / opt-out", "Mandatory — respects refusal, pause and unsubscribe intent."],
           ] as const).map(([key, label, copy]) => (
