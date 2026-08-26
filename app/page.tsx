@@ -122,6 +122,7 @@ type CrmResponse = {
   error?: string;
   data?: Record<string, SheetRow[]>;
   fetchedAt?: string;
+  dataUpdatedAt?: string;
   user?: CrmUser;
 };
 
@@ -5063,8 +5064,10 @@ export default function Home() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [crm, setCrm] = useState<CrmResponse>({ connected: false });
   const [loading, setLoading] = useState(true);
+  const [refreshError, setRefreshError] = useState("");
   const loadCrm = useCallback(() => {
     setLoading(true);
+    setRefreshError("");
     fetch("/api/crm?refresh=1", { cache: "no-store" })
       .then(async (response) => {
         if (response.status === 401) {
@@ -5074,15 +5077,20 @@ export default function Home() {
         return response.json() as Promise<CrmResponse>;
       })
       .then((result) => {
-        if (result) setCrm(result);
+        if (result) {
+          setCrm(result);
+          if (!result.connected)
+            setRefreshError(result.error || "Unable to refresh CRM data.");
+        }
       })
-      .catch(() =>
+      .catch(() => {
+        setRefreshError("Unable to refresh CRM data.");
         setCrm((current) => ({
           connected: false,
           error: "Connection unavailable",
           user: current.user,
-        })),
-      )
+        }));
+      })
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
@@ -5211,12 +5219,16 @@ export default function Home() {
                     ? `Showing a stale cached snapshot of ${crm.spreadsheet}; live Google Sheets access is unavailable.`
                     : `Connected to ${crm.spreadsheet}.`
                   : `Google Sheets unavailable${crm.error ? `: ${crm.error}` : "."}`}
+              {!loading && crm.dataUpdatedAt
+                ? ` Last refreshed ${new Date(crm.dataUpdatedAt).toLocaleString("en-MY", {
+                    timeZone: "Asia/Kuala_Lumpur",
+                    hour12: true,
+                  })}.`
+                : ""}
+              {refreshError ? ` ${refreshError}` : ""}
             </p>
-            <button className="safe-mode" onClick={loadCrm}>
-              ●{" "}
-              {crm.connected
-                ? `PRODUCTION · ${crm.user?.role.toUpperCase() || "SECURE"}`
-                : "RETRY CONNECTION"}
+            <button className="safe-mode" onClick={loadCrm} disabled={loading}>
+              {loading ? "↻ REFRESHING…" : crm.connected ? "↻ REFRESH DATA" : "↻ RETRY CONNECTION"}
             </button>
           </div>
           {active === "New Application" ? (
