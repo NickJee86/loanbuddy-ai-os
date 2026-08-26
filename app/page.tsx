@@ -51,6 +51,7 @@ import {
 } from "./fulfilment-control.mjs";
 import { CONSENT_TEMPLATE } from "./consent-template.mjs";
 import WhatsAppConsole from "./whatsapp-console";
+import { DEFAULT_FOLLOW_UP_SETTINGS } from "./follow-up-control.mjs";
 
 type NavKey =
   | "New Application"
@@ -70,6 +71,7 @@ type NavKey =
   | "Escalations"
   | "LMS Status"
   | "Post-Approval"
+  | "Follow-up Settings"
   | "Credit Policy"
   | "Audit Log"
   | "User Management";
@@ -236,6 +238,7 @@ const navigationSections: Array<{
   {
     label: "Administration",
     items: [
+      { label: "Follow-up Settings", icon: "⏱" },
       { label: "Audit Log", icon: "≡" },
       { label: "User Management", icon: "⚙" },
     ],
@@ -271,6 +274,8 @@ const pageDescriptions: Record<NavKey, string> = {
     "Track cases waiting for LMS, submitted cases and processing status.",
   "Post-Approval":
     "Track officially approved cases through agreement, Direct Debit registration and disbursement.",
+  "Follow-up Settings":
+    "Control automatic reminders for incomplete information and documents without editing Make scenarios.",
   "Credit Policy":
     "Version, validate and approve the deterministic Pre-LMS credit policy without overwriting history.",
   "Audit Log":
@@ -322,6 +327,8 @@ function Sidebar({
       );
     if (label === "Credit Policy")
       return role === "admin" || role === "regional_manager";
+    if (label === "Follow-up Settings")
+      return ["admin", "regional_manager", "manager"].includes(role || "");
     if (label === "Audit Log")
       return role === "admin" || role === "regional_manager";
     return true;
@@ -3965,6 +3972,149 @@ function ManualApplication({
   );
 }
 
+type FollowUpSettings = typeof DEFAULT_FOLLOW_UP_SETTINGS & {
+  configured?: boolean;
+  updatedAt?: string;
+};
+
+const followUpTimingFields = [
+  ["firstMinutes", "Reminder 1", "Recommended: 2 hours"],
+  ["secondMinutes", "Reminder 2", "Recommended: 24 hours"],
+  ["thirdMinutes", "Reminder 3", "Recommended: 3 days"],
+  ["finalMinutes", "Final reminder", "Recommended: 7 days"],
+] as const;
+
+function followUpDuration(minutes: number) {
+  if (minutes % 1440 === 0) return `${minutes / 1440} day${minutes === 1440 ? "" : "s"}`;
+  if (minutes % 60 === 0) return `${minutes / 60} hour${minutes === 60 ? "" : "s"}`;
+  return `${minutes} minutes`;
+}
+
+function FollowUpSettingsManagement({ user }: { user?: CrmUser }) {
+  const [settings, setSettings] = useState<FollowUpSettings>({
+    ...DEFAULT_FOLLOW_UP_SETTINGS,
+  });
+  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [confirmEnable, setConfirmEnable] = useState(false);
+  const canManage = ["admin", "regional_manager"].includes(user?.role || "");
+  const load = useCallback(() => {
+    setLoadingSettings(true);
+    return fetch("/api/follow-up-settings", { cache: "no-store" })
+      .then(async (response) => {
+        const result = (await response.json()) as { settings?: FollowUpSettings; error?: string };
+        if (!response.ok) throw new Error(result.error || "Unable to load follow-up settings.");
+        setSettings(result.settings || { ...DEFAULT_FOLLOW_UP_SETTINGS });
+      })
+      .catch((error) => setMessage(error instanceof Error ? error.message : "Unable to load follow-up settings."))
+      .finally(() => setLoadingSettings(false));
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  const save = async (confirmed = false) => {
+    if (settings.enabled && !confirmed) {
+      setConfirmEnable(true);
+      setMessage("Confirm before enabling: saved settings will be available to the automatic S09 follow-up workflow.");
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    const response = await fetch("/api/follow-up-settings", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        settings,
+        expectedUpdatedAt: settings.updatedAt || "",
+        confirmation: settings.enabled ? "ENABLE_FOLLOW_UP_ENGINE" : "SAVE_FOLLOW_UP_SETTINGS",
+      }),
+    });
+    const result = (await response.json()) as { settings?: FollowUpSettings; error?: string };
+    if (response.ok) {
+      if (result.settings) setSettings(result.settings);
+      setMessage(settings.enabled
+        ? "Follow-up settings saved and the CRM master switch is ON."
+        : "Follow-up settings saved. The CRM master switch remains OFF.");
+      setConfirmEnable(false);
+    } else setMessage(result.error || "Unable to save follow-up settings.");
+    setBusy(false);
+  };
+  const update = <K extends keyof FollowUpSettings>(key: K, value: FollowUpSettings[K]) =>
+    setSettings((current) => ({ ...current, [key]: value }));
+
+  return (
+    <div className="content-stack follow-up-settings">
+      <SummaryStrip items={[
+        { label: "Master switch", value: loadingSettings ? "Loading…" : settings.enabled ? "ON" : "OFF" },
+        { label: "Reminder steps", value: settings.maxCount },
+        { label: "First reminder", value: followUpDuration(settings.firstMinutes) },
+        { label: "Final reminder", value: followUpDuration(settings.finalMinutes) },
+      ]} />
+      <section className={`panel follow-up-master ${settings.enabled ? "is-on" : "is-off"}`}>
+        <div>
+          <span>AUTOMATION MASTER CONTROL</span>
+          <h2>Incomplete Customer Follow-up</h2>
+          <p>Controls reminders when required application information or documents are unfinished. Customer replies, pause requests and opt-outs always stop the sequence.</p>
+        </div>
+        <label className="follow-up-switch">
+          <input type="checkbox" checked={settings.enabled} disabled={!canManage || loadingSettings || busy}
+            onChange={(event) => { update("enabled", event.target.checked); setConfirmEnable(false); }} />
+          <strong>{settings.enabled ? "ENGINE ON" : "ENGINE OFF"}</strong>
+        </label>
+      </section>
+      <section className="panel follow-up-editor">
+        <div className="table-toolbar">
+          <div><h2>Reminder Timing</h2><p>All timings are measured from the customer becoming inactive, not from the previous reminder.</p></div>
+          <Chip tone="blue">MYT</Chip>
+        </div>
+        <div className="follow-up-timing-grid">
+          {followUpTimingFields.map(([key, label, helper], index) => (
+            <label key={key}>
+              <span>{index + 1}</span>
+              <strong>{label}</strong>
+              <input type="number" min="15" step="15" value={settings[key]}
+                disabled={!canManage || busy}
+                onChange={(event) => update(key, Number(event.target.value))} />
+              <small>minutes · {followUpDuration(settings[key])}<br />{helper}</small>
+            </label>
+          ))}
+        </div>
+      </section>
+      <section className="panel follow-up-rules">
+        <div className="table-toolbar"><div><h2>Safety & Case Rules</h2><p>Mandatory stop controls cannot be disabled.</p></div></div>
+        <div className="follow-up-rule-grid">
+          {([
+            ["informationIncomplete", "Incomplete information", "Follow up when application questions are unfinished."],
+            ["documentsIncomplete", "Incomplete documents", "Follow up only for documents genuinely still missing."],
+            ["businessHoursOnly", "Business hours only", "Hold reminders outside approved operating hours."],
+            ["stopOnReply", "Stop on customer reply", "Mandatory — prevents messages after the customer responds."],
+            ["stopOnOptOut", "Stop on pause / opt-out", "Mandatory — respects refusal, pause and unsubscribe intent."],
+          ] as const).map(([key, label, copy]) => (
+            <label key={key}>
+              <input type="checkbox" checked={settings[key]}
+                disabled={!canManage || busy || key === "stopOnReply" || key === "stopOnOptOut"}
+                onChange={(event) => update(key, event.target.checked)} />
+              <span><strong>{label}</strong><small>{copy}</small></span>
+            </label>
+          ))}
+        </div>
+      </section>
+      {confirmEnable && canManage && (
+        <section className="panel follow-up-confirm">
+          <div><strong>Enable automatic follow-up?</strong><p>This saves the active schedule for S09. Verify the Make scenario connection before production sending.</p></div>
+          <div><button className="account-secondary" onClick={() => setConfirmEnable(false)} disabled={busy}>Cancel</button><button onClick={() => void save(true)} disabled={busy}>{busy ? "Saving…" : "Confirm Enable"}</button></div>
+        </section>
+      )}
+      <div className="follow-up-actions">
+        <span>{settings.updatedAt ? `Last updated ${displayTime(settings.updatedAt)}` : "Using controlled defaults"}</span>
+        {canManage ? <div><button className="account-secondary" disabled={busy} onClick={() => { setSettings({ ...DEFAULT_FOLLOW_UP_SETTINGS, updatedAt: settings.updatedAt }); setConfirmEnable(false); }}>Restore Recommended</button><button disabled={busy} onClick={() => void save()}>{busy ? "Saving…" : "Save Settings"}</button></div> : <small>Manager view only. Admin or Regional Manager can change these controls.</small>}
+      </div>
+      {message && <div className={/Unable|must|required|changed|error/i.test(message) ? "form-message error" : "form-message"}>{message}</div>}
+    </div>
+  );
+}
+
+
 type PolicyRecord = Record<string, string> & {
   activation?: { valid: boolean; errors: string[] };
 };
@@ -5291,6 +5441,9 @@ export default function Home() {
               user={crm.user}
               onChanged={loadCrm}
             />
+          ) : active === "Follow-up Settings" &&
+            ["admin", "regional_manager", "manager"].includes(crm.user?.role || "") ? (
+            <FollowUpSettingsManagement user={crm.user} />
           ) : active === "Credit Policy" &&
             ["admin", "regional_manager"].includes(crm.user?.role || "") ? (
             <CreditPolicyManagement user={crm.user} />
