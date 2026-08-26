@@ -3106,13 +3106,31 @@ function ModulePage({
   }
 
   if (active === "Follow-up") {
-    const followRows = rows.filter((row) => {
+        const queueRows = rows.filter((row) => {
       const status = normalized(row.Status);
       return !["resolved", "closed", "completed", "cancelled"].includes(
         status,
       );
     });
     const applications = buildApplicationRegister(filteredLeads, data);
+    const queuedLeadIds = new Set(
+      queueRows.map((row) => pick(row, ["Lead ID"])).filter(Boolean),
+    );
+    const derivedRows = applications
+      .filter((item) => ["QUALIFICATION", "DOCUMENTS"].includes(item.phase))
+      .filter((item) => !queuedLeadIds.has(item.lead.id))
+      .map((item) => ({
+        "Lead ID": item.lead.id,
+        "Lead Name": item.lead.name,
+        "Phone Number": item.lead.phone,
+        "Follow Up Type": item.phase === "DOCUMENTS" ? "Missing documents" : "Incomplete information",
+        "Next Action": pick(item.state || {}, ["Next Action"]) || item.blocker,
+        "Due At": "Awaiting S09 schedule",
+        Status: item.phase,
+        "Assigned To": item.lead.owner || (item.lead.processingRoute === "AI_DIRECT" ? "AI Direct" : "Unassigned"),
+        Source: "Application Register",
+      }));
+    const followRows = [...queueRows, ...derivedRows];
     const qualificationPending = applications.filter(
       (item) => item.phase === "QUALIFICATION",
     ).length;
