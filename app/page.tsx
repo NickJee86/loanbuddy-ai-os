@@ -3972,7 +3972,18 @@ function ManualApplication({
   );
 }
 
-type FollowUpSettings = typeof DEFAULT_FOLLOW_UP_SETTINGS & {
+type FollowUpSettings = {
+  enabled: boolean;
+  firstMinutes: number;
+  secondMinutes: number;
+  thirdMinutes: number;
+  finalMinutes: number;
+  maxCount: number;
+  businessHoursOnly: boolean;
+  stopOnReply: boolean;
+  stopOnOptOut: boolean;
+  informationIncomplete: boolean;
+  documentsIncomplete: boolean;
   configured?: boolean;
   updatedAt?: string;
 };
