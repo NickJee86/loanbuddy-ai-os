@@ -1,0 +1,63 @@
+{
+  "scenario_id": 6496076,
+  "scenario_name": "S00 V4 — Unified Knowledge AI Production",
+  "runtime_store": "LoanBuddy_KB_Runtime_V2",
+  "runtime_store_id": 163595,
+  "deployed_at": "2026-08-26T12:30:00+08:00",
+  "status": "DEPLOYED",
+  "changes": {
+    "intent_extractor": {
+      "match_terms": [
+        "alamat branch",
+        "alamat cawangan",
+        "branch address",
+        "Google Maps",
+        "Waze",
+        "KL branch",
+        "Kuala Lumpur branch",
+        "Bintulu branch",
+        "Kota Samarahan branch"
+      ],
+      "knowledge_intent": "branch_addresses",
+      "preserve_requested_branch": true
+    },
+    "reply_guardrail": {
+      "specific_branch_only_when_named": true,
+      "list_all_when_unspecified": true,
+      "include_google_maps": true,
+      "include_waze": true,
+      "require_human_confirmation_for_approved_address": false,
+      "invent_unlisted_branch": false
+    },
+    "runtime_knowledge": {
+      "key": "KB-BRANCH-ADDRESS-001",
+      "knowledge_id": "KB-BRANCH-ADDRESS-001",
+      "category": "Branch & Location",
+      "intent": "branch_addresses",
+      "status": "Active",
+      "customer_facing": true,
+      "version": "1.0",
+      "effective_date": "2026-08-26",
+      "branches": [
+        {
+          "name": "Kuala Lumpur",
+          "address": "No.15-4, Jalan Medan Tuanku 1, Medan Tuanku, 50300 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur",
+          "google_maps": "https://www.google.com/maps/search/?api=1&query=No.15-4%2C%20Jalan%20Medan%20Tuanku%201%2C%20Medan%20Tuanku%2C%2050300%20Kuala%20Lumpur%2C%20Wilayah%20Persekutuan%20Kuala%20Lumpur",
+          "waze": "https://www.waze.com/ul?q=No.15-4%2C%20Jalan%20Medan%20Tuanku%201%2C%20Medan%20Tuanku%2C%2050300%20Kuala%20Lumpur%2C%20Wilayah%20Persekutuan%20Kuala%20Lumpur&navigate=yes"
+        },
+        {
+          "name": "Bintulu",
+          "address": "Lot 8093, Sublot 20, 1st Floor, Bintulu Sentral, Jln Kidurong, 97000 Bintulu, Sarawak",
+          "google_maps": "https://www.google.com/maps/search/?api=1&query=Lot%208093%2C%20Sublot%2020%2C%201st%20Floor%2C%20Bintulu%20Sentral%2C%20Jln%20Kidurong%2C%2097000%20Bintulu%2C%20Sarawak",
+          "waze": "https://www.waze.com/ul?q=Lot%208093%2C%20Sublot%2020%2C%201st%20Floor%2C%20Bintulu%20Sentral%2C%20Jln%20Kidurong%2C%2097000%20Bintulu%2C%20Sarawak&navigate=yes"
+        },
+        {
+          "name": "Kota Samarahan",
+          "address": "1st Floor, Lot 9269 (SL.75) Bandar Riyal, Jalan Muara Tuang Kota Samarahan, 94300 Kuching, Sarawak",
+          "google_maps": "https://www.google.com/maps/search/?api=1&query=1st%20Floor%2C%20Lot%209269%20(SL.75)%20Bandar%20Riyal%2C%20Jalan%20Muara%20Tuang%20Kota%20Samarahan%2C%2094300%20Kuching%2C%20Sarawak",
+          "waze": "https://www.waze.com/ul?q=1st%20Floor%2C%20Lot%209269%20(SL.75)%20Bandar%20Riyal%2C%20Jalan%20Muara%20Tuang%20Kota%20Samarahan%2C%2094300%20Kuching%2C%20Sarawak&navigate=yes"
+        }
+      ]
+    }
+  }
+}
