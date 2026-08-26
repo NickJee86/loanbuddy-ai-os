@@ -100,6 +100,19 @@ function messageDeduplicationKey(event) {
 }
 
 export function buildConversationTimeline(leadId, sources = {}) {
+
+  function isReplyLogCopyOfInbox(event, events) {
+  if (event.type !== "message" || event.direction !== "customer" || event.source !== "Customer Reply Log") return false;
+  const eventTime = timeValue(event.at);
+  return events.some((candidate) =>
+    candidate.type === "message" &&
+    candidate.direction === "customer" &&
+    candidate.source === "Customer Inbox" &&
+    candidate.leadId === event.leadId &&
+    normalizedMessageText(candidate.text) === normalizedMessageText(event.text) &&
+    Math.abs(timeValue(candidate.at) - eventTime) <= 15000
+  );
+}
   const events = [];
   rowsForLead(sources.customerInbox, leadId).forEach((row, index) => {
     const text = value(row, ["Customer Message", "Message", "Message Text", "Text"]);
@@ -192,6 +205,7 @@ export function buildConversationTimeline(leadId, sources = {}) {
 
   const deduped = new Map();
   for (const event of events) {
+        if (isReplyLogCopyOfInbox(event, events)) continue;
     const contentKey = event.type === "document"
       ? `${event.type}|${event.leadId}|${event.documentType}|${event.fileName}|${event.at}`
       : event.type === "activity"
