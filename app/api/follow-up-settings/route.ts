@@ -114,6 +114,8 @@ export async function POST(request: NextRequest) {
           finalMinutes: validation.settings.finalMinutes,
           maxCount: validation.settings.maxCount,
           businessHoursOnly: validation.settings.businessHoursOnly,
+          businessStart: validation.settings.businessStart,
+          businessEnd: validation.settings.businessEnd,
           informationIncomplete: validation.settings.informationIncomplete,
           documentsIncomplete: validation.settings.documentsIncomplete,
         }),
