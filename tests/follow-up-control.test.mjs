@@ -24,6 +24,23 @@ test("rejects unordered timings and unsafe stop controls", () => {
   assert.equal(result.errors.length, 2);
 });
 
+test("rejects malformed or reversed business hours", () => {
+  const malformed = validateFollowUpSettings({
+    ...DEFAULT_FOLLOW_UP_SETTINGS,
+    businessStart: "9am",
+  });
+  assert.equal(malformed.valid, false);
+  assert.match(malformed.errors.join(" "), /24-hour HH:mm/);
+
+  const reversed = validateFollowUpSettings({
+    ...DEFAULT_FOLLOW_UP_SETTINGS,
+    businessStart: "18:00",
+    businessEnd: "09:00",
+  });
+  assert.equal(reversed.valid, false);
+  assert.match(reversed.errors.join(" "), /end after they start/);
+});
+
 test("round trips the approved four-step schedule", () => {
   const records = buildFollowUpConfigRecords(
     DEFAULT_FOLLOW_UP_SETTINGS,
@@ -34,4 +51,6 @@ test("round trips the approved four-step schedule", () => {
   assert.equal(result.firstMinutes, 120);
   assert.equal(result.finalMinutes, 10080);
   assert.equal(result.stopOnOptOut, true);
+  assert.equal(result.businessStart, "09:00");
+  assert.equal(result.businessEnd, "18:00");
 });

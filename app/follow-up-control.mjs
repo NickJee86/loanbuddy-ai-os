@@ -6,6 +6,8 @@ export const FOLLOW_UP_CONFIG = {
   finalMinutes: "FOLLOW_UP_FINAL_MINUTES",
   maxCount: "FOLLOW_UP_MAX_COUNT",
   businessHoursOnly: "FOLLOW_UP_BUSINESS_HOURS_ONLY",
+  businessStart: "FOLLOW_UP_BUSINESS_START",
+  businessEnd: "FOLLOW_UP_BUSINESS_END",
   stopOnReply: "FOLLOW_UP_STOP_ON_REPLY",
   stopOnOptOut: "FOLLOW_UP_STOP_ON_OPTOUT",
   informationIncomplete: "FOLLOW_UP_INFO_INCOMPLETE",
@@ -20,6 +22,8 @@ export const DEFAULT_FOLLOW_UP_SETTINGS = Object.freeze({
   finalMinutes: 10080,
   maxCount: 4,
   businessHoursOnly: true,
+  businessStart: "09:00",
+  businessEnd: "18:00",
   stopOnReply: true,
   stopOnOptOut: true,
   informationIncomplete: true,
@@ -36,6 +40,16 @@ const booleanValue = (value, fallback) => {
 const positiveInteger = (value, fallback) => {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const timeValue = (value, fallback) =>
+  /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || "").trim())
+    ? String(value).trim()
+    : fallback;
+
+const timeMinutes = (value) => {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
 };
 
 export function readFollowUpSettings(rows = []) {
@@ -75,6 +89,14 @@ export function readFollowUpSettings(rows = []) {
       value(FOLLOW_UP_CONFIG.businessHoursOnly),
       DEFAULT_FOLLOW_UP_SETTINGS.businessHoursOnly,
     ),
+    businessStart: timeValue(
+      value(FOLLOW_UP_CONFIG.businessStart),
+      DEFAULT_FOLLOW_UP_SETTINGS.businessStart,
+    ),
+    businessEnd: timeValue(
+      value(FOLLOW_UP_CONFIG.businessEnd),
+      DEFAULT_FOLLOW_UP_SETTINGS.businessEnd,
+    ),
     stopOnReply: booleanValue(
       value(FOLLOW_UP_CONFIG.stopOnReply),
       DEFAULT_FOLLOW_UP_SETTINGS.stopOnReply,
@@ -110,6 +132,8 @@ export function validateFollowUpSettings(input = {}) {
     finalMinutes: Number(input.finalMinutes),
     maxCount: Number(input.maxCount),
     businessHoursOnly: Boolean(input.businessHoursOnly),
+    businessStart: String(input.businessStart || "").trim(),
+    businessEnd: String(input.businessEnd || "").trim(),
     stopOnReply: Boolean(input.stopOnReply),
     stopOnOptOut: Boolean(input.stopOnOptOut),
     informationIncomplete: Boolean(input.informationIncomplete),
@@ -128,6 +152,11 @@ export function validateFollowUpSettings(input = {}) {
     errors.push("Reminder times must increase from the first reminder to the final reminder.");
   if (!Number.isSafeInteger(normalized.maxCount) || normalized.maxCount < 1 || normalized.maxCount > 4)
     errors.push("Maximum reminders must be between 1 and 4.");
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(normalized.businessStart) ||
+      !/^([01]\d|2[0-3]):[0-5]\d$/.test(normalized.businessEnd))
+    errors.push("Business hours must use 24-hour HH:mm format.");
+  else if (timeMinutes(normalized.businessStart) >= timeMinutes(normalized.businessEnd))
+    errors.push("Business hours must end after they start.");
   if (!normalized.informationIncomplete && !normalized.documentsIncomplete)
     errors.push("At least one incomplete-case type must be selected.");
   if (!normalized.stopOnReply)
@@ -147,6 +176,8 @@ export function buildFollowUpConfigRecords(settings, updatedAt) {
     [FOLLOW_UP_CONFIG.finalMinutes]: "Minutes from customer inactivity to final reminder",
     [FOLLOW_UP_CONFIG.maxCount]: "Maximum automated reminders per inactive case",
     [FOLLOW_UP_CONFIG.businessHoursOnly]: "Send automated reminders only during business hours",
+    [FOLLOW_UP_CONFIG.businessStart]: "Start of the approved automated follow-up sending window (MYT)",
+    [FOLLOW_UP_CONFIG.businessEnd]: "End of the approved automated follow-up sending window (MYT)",
     [FOLLOW_UP_CONFIG.stopOnReply]: "Stop automated reminders immediately after a customer reply",
     [FOLLOW_UP_CONFIG.stopOnOptOut]: "Stop automated reminders after pause, refusal or opt-out",
     [FOLLOW_UP_CONFIG.informationIncomplete]: "Follow up when required application information is incomplete",
@@ -160,6 +191,8 @@ export function buildFollowUpConfigRecords(settings, updatedAt) {
     [FOLLOW_UP_CONFIG.finalMinutes]: String(settings.finalMinutes),
     [FOLLOW_UP_CONFIG.maxCount]: String(settings.maxCount),
     [FOLLOW_UP_CONFIG.businessHoursOnly]: onOff(settings.businessHoursOnly),
+    [FOLLOW_UP_CONFIG.businessStart]: settings.businessStart,
+    [FOLLOW_UP_CONFIG.businessEnd]: settings.businessEnd,
     [FOLLOW_UP_CONFIG.stopOnReply]: onOff(settings.stopOnReply),
     [FOLLOW_UP_CONFIG.stopOnOptOut]: onOff(settings.stopOnOptOut),
     [FOLLOW_UP_CONFIG.informationIncomplete]: onOff(settings.informationIncomplete),
