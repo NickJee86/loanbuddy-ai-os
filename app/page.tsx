@@ -4129,7 +4129,7 @@ function FollowUpSettingsManagement({ user }: { user?: CrmUser }) {
         </div>
 </section>
             <section className="panel follow-up-preview">
-        <div className="table-toolbar"><div><h2>Sequence Preview & Sales Intent</h2><p>The AI creates a fresh message from the live case, answers the customer first and asks only for genuinely missing information or documents.</p></div><Chip tone="green">{settings.maxCount} ACTIVE</Chip></div>
+                <div className="table-toolbar"><div><h2>Sequence Preview & Sales Intent</h2><p>The AI creates a fresh message from the live case, answers the customer first and asks only for genuinely missing information or documents.</p></div><Chip tone="teal">{settings.maxCount} ACTIVE</Chip></div>
         <div className="follow-up-preview-grid">
           {followUpTimingFields.map(([key, label], index) => (
             <article key={key} className={index >= settings.maxCount ? "is-inactive" : ""}>
