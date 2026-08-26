@@ -1,2 +1,16 @@
-# loanbuddy-ai-os
-LoanBuddy CRM AI OS — prompts, business rules, Make blueprints, schemas, tests and release history
+# LoanBuddy AI OS
+
+Production CRM and AI conversation control for LoanBuddy.
+
+## WhatsApp console
+
+The Conversations module combines inbound messages, outbound messages, documents and case events. Authorized CRM staff can pause AI for a customer, queue a manual WhatsApp message in `Message_Outbox`, and resume AI.
+
+Required Vercel environment variables:
+
+- `CRM_SESSION_SECRET`
+- `CRM_USERS_JSON` (or CRM users stored in the workbook)
+- `GOOGLE_SERVICE_ACCOUNT_JSON`
+- `GOOGLE_SHEET_ID`
+
+Run `npm test` before release.
