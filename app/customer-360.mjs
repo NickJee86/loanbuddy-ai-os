@@ -48,8 +48,13 @@ function fileName(row) {
   } catch { return ""; }
 }
 
+function conversationIdentity(row) {
+  return value(row, ["Lead ID", "LeadId", "leadId"]) ||
+    value(row, ["Phone Number", "WhatsApp Number", "Customer Phone", "Phone", "From"]);
+}
+
 function rowsForLead(rows, leadId) {
-  return (rows || []).filter((row) => value(row, ["Lead ID", "LeadId", "leadId"]) === leadId);
+  return (rows || []).filter((row) => conversationIdentity(row) === leadId);
 }
 
 function messageEvent(row, leadId, direction, text, at, source, index) {
@@ -232,7 +237,7 @@ export function buildConversationSummaries(leads = [], sources = {}) {
   for (const rows of Object.values(sources)) {
     if (!Array.isArray(rows)) continue;
     for (const row of rows) {
-      const id = value(row, ["Lead ID", "LeadId", "leadId"]);
+      const id = conversationIdentity(row);
       if (!id || knownLeadIds.has(id)) continue;
       conversationLeads.push({
         id,

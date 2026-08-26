@@ -3175,9 +3175,11 @@ function ModulePage({
   }
 
   if (active === "Conversations") {
+    const sources = conversationSources(data);
+    const conversationSummaries = buildConversationSummaries(filteredLeads, sources);
     const conversationRows = buildConversationRows(
       filteredLeads,
-      conversationSources(data),
+      sources,
     );
     const customerMessages = conversationRows.filter(
       (row) => row.Direction === "CUSTOMER",
@@ -3199,7 +3201,7 @@ function ModulePage({
           ]}
         />
         <WhatsAppConsole
-          leads={filteredLeads}
+          leads={conversationSummaries.map((summary) => summary.lead)}
           data={data}
           user={user}
           onChanged={onChanged || (() => {})}
