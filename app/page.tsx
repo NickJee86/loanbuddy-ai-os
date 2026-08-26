@@ -2741,7 +2741,6 @@ function PostApprovalWorkspace({
   user?: CrmUser;
   onChanged: () => void;
 }) {
- function followUpDuration(minutes: number) {
    const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState(false);
