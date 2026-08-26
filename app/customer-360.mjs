@@ -227,7 +227,25 @@ export function buildDocumentChecklist(leadId, rows = []) {
 }
 
 export function buildConversationSummaries(leads = [], sources = {}) {
-  return leads.map((lead) => {
+  const conversationLeads = [...leads];
+  const knownLeadIds = new Set(conversationLeads.map((lead) => String(lead?.id || "").trim()).filter(Boolean));
+  for (const rows of Object.values(sources)) {
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows) {
+      const id = value(row, ["Lead ID", "LeadId", "leadId"]);
+      if (!id || knownLeadIds.has(id)) continue;
+      conversationLeads.push({
+        id,
+        name: value(row, ["Customer Name", "Full Name", "Name"]) || "WhatsApp User",
+        phone: value(row, ["Phone Number", "WhatsApp Number", "Customer Phone", "Phone"]),
+        updated: timestamp(row, ["Timestamp", "Reply Timestamp", "Received Date", "Created Date", "Last Updated"]),
+        synthetic: true,
+      });
+      knownLeadIds.add(id);
+    }
+  }
+
+  return conversationLeads.map((lead) => {
     const timeline = buildConversationTimeline(lead.id, sources);
     const checklist = buildDocumentChecklist(lead.id, sources.documents);
     const lastEvent = timeline[timeline.length - 1];
