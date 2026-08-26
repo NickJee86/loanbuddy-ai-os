@@ -89,6 +89,15 @@ export function filterCrmDataForUser(user, rawData) {
       .filter(Boolean),
   );
   const canSeeUnlinkedOperationalRows = user.role === "admin" || user.role === "regional_manager";
+  const unlinkedCustomerActivityTabs = new Set([
+    "Conversation_State",
+    "Customer_Inbox",
+    "Customer_Reply_Log",
+    "Message_Outbox",
+    "Document_Received_Log",
+    "Document_Verification_Log",
+    "Document_Request_Log",
+  ]);
   const data = Object.fromEntries(
     Object.entries(rawData).map(([tab, rows]) => [
       tab,
@@ -102,7 +111,14 @@ export function filterCrmDataForUser(user, rawData) {
             row["Phone Number"] || row.Phone || row.phone,
           );
           if (phone && visiblePhones.has(phone)) return true;
-          return !row["Lead ID"] && !phone && canSeeUnlinkedOperationalRows;
+          if (!row["Lead ID"] && !phone && canSeeUnlinkedOperationalRows)
+            return true;
+          return Boolean(
+            !row["Lead ID"] &&
+              phone &&
+              canSeeUnlinkedOperationalRows &&
+              unlinkedCustomerActivityTabs.has(tab),
+          );
         }),
     ])
   );
