@@ -14,3 +14,7 @@ Required Vercel environment variables:
 - `GOOGLE_SHEET_ID`
 
 Run `npm test` before release.
+
+## Production release
+
+Current production patch includes faster AI replies, LoanBuddy branch address knowledge, police-applicant rejection rules, CRM data refresh status, and visibility of unlinked WhatsApp customer activity for authorized operations roles.
