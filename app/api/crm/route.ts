@@ -237,6 +237,7 @@ export async function GET(request: NextRequest) {
         user,
         stale,
         fetchedAt: new Date().toISOString(),
+        dataUpdatedAt: new Date(snapshot.loadedAt).toISOString(),
       },
       {
         headers: {
