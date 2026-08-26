@@ -2741,7 +2741,8 @@ function PostApprovalWorkspace({
   user?: CrmUser;
   onChanged: () => void;
 }) {
-  const [busy, setBusy] = useState("");
+ function followUpDuration(minutes: number) {
+   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState(false);
   const cases = useMemo(
@@ -3997,7 +3998,14 @@ const followUpTimingFields = [
   ["finalMinutes", "Final reminder", "Recommended: 7 days"],
 ] as const;
 
-function followUpDuration(minutes: number) {
+const followUpSalesIntent = [
+  ["Helpful check-in", "Offer assistance and ask for the single next missing item."],
+  ["Value reminder", "Reconnect the application goal and make document submission easy."],
+  ["Progress recovery", "Address hesitation and guide the customer back to the application."],
+  ["Respectful close", "Give one clear final action without pressure or repeated chasing."],
+] as const;
+
+  function followUpDuration(minutes: number) {
   if (minutes % 1440 === 0) return `${minutes / 1440} day${minutes === 1440 ? "" : "s"}`;
   if (minutes % 60 === 0) return `${minutes / 60} hour${minutes === 60 ? "" : "s"}`;
   return `${minutes} minutes`;
@@ -4093,7 +4101,11 @@ function FollowUpSettingsManagement({ user }: { user?: CrmUser }) {
           ))}
         </div>
       </section>
-      <section className="panel follow-up-rules">
+            <section className="panel follow-up-sequence-control">
+        <div><strong>Maximum reminder steps</strong><small>S09 stops after this number of automated reminders. Timing steps above the selected limit will not be sent.</small></div>
+        <label><span>Active steps</span><select value={settings.maxCount} disabled={!canManage || busy} onChange={(event) => update("maxCount", Number(event.target.value))}>{[1, 2, 3, 4].map((count) => <option key={count} value={count}>{count} reminder{count === 1 ? "" : "s"}</option>)}</select></label>
+      </section>
+<section className="panel follow-up-rules">
         <div className="table-toolbar"><div><h2>Safety & Case Rules</h2><p>Mandatory stop controls cannot be disabled.</p></div></div>
         <div className="follow-up-rule-grid">
           {([
@@ -4117,7 +4129,22 @@ function FollowUpSettingsManagement({ user }: { user?: CrmUser }) {
           <label><span>End</span><input type="time" value={settings.businessEnd} disabled={!canManage || busy || !settings.businessHoursOnly} onChange={(event) => update("businessEnd", event.target.value)} /></label>
         </div>
 </section>
-      {confirmEnable && canManage && (
+            <section className="panel follow-up-preview">
+        <div className="table-toolbar"><div><h2>Sequence Preview & Sales Intent</h2><p>The AI creates a fresh message from the live case, answers the customer first and asks only for genuinely missing information or documents.</p></div><Chip tone="green">{settings.maxCount} ACTIVE</Chip></div>
+        <div className="follow-up-preview-grid">
+          {followUpTimingFields.map(([key, label], index) => (
+            <article key={key} className={index >= settings.maxCount ? "is-inactive" : ""}>
+              <span>{index + 1}</span><div><strong>{label} · {followUpSalesIntent[index][0]}</strong><small>{followUpSalesIntent[index][1]}</small><em>{index >= settings.maxCount ? "Disabled by maximum steps" : "After " + followUpDuration(settings[key]) + " inactive"}</em></div>
+            </article>
+          ))}
+        </div>
+        <div className="follow-up-guardrails">
+          <div><strong>Eligible</strong><small>Application information unfinished or required documents genuinely missing.</small></div>
+          <div><strong>Stops immediately</strong><small>Customer replies, asks to pause, refuses, opts out, or the case becomes complete.</small></div>
+          <div><strong>Message standard</strong><small>Natural Malaysian language, no repeated question, no false approval promise, and one clear next action.</small></div>
+        </div>
+      </section>
+{confirmEnable && canManage && (
         <section className="panel follow-up-confirm">
           <div><strong>Enable automatic follow-up?</strong><p>This saves the active schedule for S09. Verify the Make scenario connection before production sending.</p></div>
           <div><button className="account-secondary" onClick={() => setConfirmEnable(false)} disabled={busy}>Cancel</button><button onClick={() => void save(true)} disabled={busy}>{busy ? "Saving…" : "Confirm Enable"}</button></div>
