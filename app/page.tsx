@@ -3984,7 +3984,9 @@ type FollowUpSettings = {
   stopOnOptOut: boolean;
   informationIncomplete: boolean;
   documentsIncomplete: boolean;
-  configured?: boolean;
+    businessStart: string;
+  businessEnd: string;
+configured?: boolean;
   updatedAt?: string;
 };
 
