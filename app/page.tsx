@@ -1116,9 +1116,12 @@ const moduleConfig: Partial<
       { label: "Lead", keys: ["Lead Name", "Lead ID"] },
       { label: "Phone", keys: ["Phone Number"] },
       { label: "Type", keys: ["Follow Up Type", "Reason"] },
+      { label: "Reminder", keys: ["Reminder Stage", "Last AI Message Type"] },
+      { label: "Last Reminder", keys: ["Last Reminder At", "Last AI Message At"] },
       { label: "Next Action", keys: ["Next Action", "Required Action"] },
       { label: "Due", keys: ["Due At", "Scheduled At", "Follow Up Date"] },
       { label: "Status", keys: ["Status", "Qualification Status"] },
+      { label: "AI Control", keys: ["AI Status"] },
       { label: "Assigned", keys: ["Assigned To", "Staff ID"] },
     ],
   },
@@ -3130,7 +3133,22 @@ function ModulePage({
         "Assigned To": item.lead.owner || (item.lead.processingRoute === "AI_DIRECT" ? "AI Direct" : "Unassigned"),
         Source: "Application Register",
       }));
-    const followRows = [...queueRows, ...derivedRows];
+    const followRows = [...queueRows, ...derivedRows].map((row) => {
+      const leadState = latestRow(data.Conversation_State || [], pick(row, ["Lead ID"])) || {};
+      return {
+        ...leadState,
+        ...row,
+        "Reminder Stage": pick(row, ["Reminder Stage", "Last AI Message Type"]) !== "—"
+          ? pick(row, ["Reminder Stage", "Last AI Message Type"])
+          : pick(leadState, ["Last AI Message Type"]),
+        "Last Reminder At": pick(row, ["Last Reminder At", "Last AI Message At"]) !== "—"
+          ? pick(row, ["Last Reminder At", "Last AI Message At"])
+          : pick(leadState, ["Last AI Message At"]),
+        "AI Status": pick(leadState, ["AI Status"]) === "—"
+          ? "ACTIVE"
+          : pick(leadState, ["AI Status"]),
+      };
+    });
     const qualificationPending = applications.filter(
       (item) => item.phase === "QUALIFICATION",
     ).length;
