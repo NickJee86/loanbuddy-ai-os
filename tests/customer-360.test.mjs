@@ -87,6 +87,22 @@ test("conversation summary groups one customer into one thread", () => {
   assert.equal(summaries[0].requiredTotal, 4);
 });
 
+test("conversation summary includes WhatsApp activity before a Leads row exists", () => {
+  const summaries = buildConversationSummaries([], {
+    customerInbox: [{
+      "Lead ID": "WA-NEW-1",
+      "Phone Number": "60147984989",
+      "Customer Message": "hi",
+      Timestamp: "2026-08-26T02:00:00Z",
+    }],
+  });
+  assert.equal(summaries.length, 1);
+  assert.equal(summaries[0].lead.id, "WA-NEW-1");
+  assert.equal(summaries[0].lead.name, "WhatsApp User");
+  assert.equal(summaries[0].lead.phone, "60147984989");
+  assert.equal(summaries[0].timeline[0].text, "hi");
+});
+
 test("conversation records combine inbox, reply log and outbox instead of hiding sources", () => {
   const rows = buildConversationRows(
     [{ id: "LB-1", name: "Synthetic Customer", phone: "60123456789", updated: "" }],
