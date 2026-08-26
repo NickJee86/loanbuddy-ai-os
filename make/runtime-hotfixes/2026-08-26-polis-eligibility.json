@@ -1,0 +1,38 @@
+{
+  "scenario_id": 6496076,
+  "scenario_name": "S00 V4 — Unified Knowledge AI Production",
+  "runtime_store": "LoanBuddy_KB_Runtime_V2",
+  "runtime_store_id": 163595,
+  "deployed_at": "2026-08-26T10:02:00+08:00",
+  "status": "DEPLOYED",
+  "changes": {
+    "intent_extractor": {
+      "match_terms": [
+        "polis",
+        "police",
+        "anggota polis",
+        "PDRM",
+        "kerja polis"
+      ],
+      "knowledge_intent": "police_occupation_not_eligible"
+    },
+    "reply_guardrail": {
+      "eligible": false,
+      "answer_bm": "Maaf ya, buat masa ini LoanBuddy tidak menerima permohonan daripada anggota polis.",
+      "request_documents": false,
+      "continue_qualification": false,
+      "next_step": "ESCALATE",
+      "qualification_status": "NOT_ELIGIBLE"
+    },
+    "runtime_knowledge": {
+      "key": "KB-QUALIFY-POLIS-001",
+      "knowledge_id": "KB-QUALIFY-POLIS-001",
+      "category": "Qualification",
+      "intent": "police_occupation_not_eligible",
+      "status": "Active",
+      "customer_facing": true,
+      "version": "1.0",
+      "effective_date": "2026-08-26"
+    }
+  }
+}
