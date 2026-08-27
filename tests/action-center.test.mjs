@@ -38,6 +38,7 @@ test("action center consolidates role-scoped operational work", () => {
   assert.ok(result.alerts.some((alert) => alert.id === "documents"));
   assert.ok(result.alerts.some((alert) => alert.id === "lms-failed"));
   assert.equal(result.readiness.activePolicies, 0);
+  assert.equal(result.readiness.whatsapp, "AUTOMATION_LIVE");
   assert.ok(result.totalActions >= 6);
 });
 

@@ -328,7 +328,7 @@ export function buildActionCenter({
       connection: !connected ? "UNAVAILABLE" : stale ? "STALE" : "LIVE",
       activePolicies,
       lmsIntegration: "CONTRACT_REQUIRED",
-      whatsapp: "DEFERRED",
+      whatsapp: "AUTOMATION_LIVE",
     },
   };
 }
