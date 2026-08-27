@@ -1083,7 +1083,8 @@ function LeadTable({
   );
 }
 
-function pick(row: SheetRow, keys: string[]) {
+function pick(row: SheetRow | undefined | null, keys: string[]) {
+  if (!row) return "—";
   for (const key of keys) if (row[key]) return row[key];
   return "—";
 }
