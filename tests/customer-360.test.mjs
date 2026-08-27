@@ -100,6 +100,9 @@ test("conversation summary includes WhatsApp activity before a Leads row exists"
   assert.equal(summaries[0].lead.id, "WA-NEW-1");
   assert.equal(summaries[0].lead.name, "WhatsApp User");
   assert.equal(summaries[0].lead.phone, "60147984989");
+  assert.equal(summaries[0].lead.stage, "New WhatsApp");
+  assert.equal(summaries[0].lead.processingRoute, "AI_DIRECT");
+  assert.deepEqual(summaries[0].lead.raw, {});
   assert.equal(summaries[0].timeline[0].text, "hi");
 });
 
