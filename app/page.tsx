@@ -554,7 +554,7 @@ type ActionCenterResult = {
     connection: "LIVE" | "STALE" | "UNAVAILABLE";
     activePolicies: number | null;
     lmsIntegration: "CONTRACT_REQUIRED";
-    whatsapp: "DEFERRED";
+    whatsapp: "AUTOMATION_LIVE";
   };
 };
 
@@ -613,8 +613,8 @@ function ActionCenter({
           </article>
           <article>
             <span>WhatsApp Cloud API</span>
-            <Chip tone="gray">DEFERRED</Chip>
-            <small>Meta remains last in the approved sequence</small>
+            <Chip tone="teal">AUTOMATION LIVE</Chip>
+            <small>S00 replies are live; CRM manual sending remains locked</small>
           </article>
         </div>
       </section>
@@ -2140,11 +2140,11 @@ function Customer360Workspace({
               </div>
               <footer className="composer-locked">
                 <div>
-                  <strong>WhatsApp automation prepared</strong>
+                  <strong>WhatsApp automation live</strong>
                   <span>
-                    Conversation history is read-only. Sending remains locked
-                    until the LoanBuddy Cloud API number and Meta webhook pass
-                    controlled end-to-end testing.
+                    Conversation history is live and read-only. S00 automated
+                    replies are active; CRM manual sending remains intentionally
+                    locked.
                   </span>
                 </div>
                 <button disabled>Send message</button>
