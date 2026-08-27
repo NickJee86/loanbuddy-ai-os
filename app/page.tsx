@@ -5443,6 +5443,15 @@ export default function Home() {
       ).map((summary) => summary.lead),
     [allSourceLeads, crm.data],
   );
+  const workQueueCustomers = useMemo(() => {
+    const customers = buildConversationSummaries(
+      filteredLeads,
+      conversationSources(datedData),
+    ).map((summary) => summary.lead);
+    return branch === "All Branches"
+      ? customers
+      : customers.filter((lead) => lead.branch === branch);
+  }, [branch, datedData, filteredLeads]);
   const actionCenter = useMemo(
     () =>
       buildActionCenter({
@@ -5586,8 +5595,8 @@ export default function Home() {
             />
           ) : active === "Work Queue" ? (
             <WorkQueue
-              leads={filteredLeads}
-              data={crm.data || {}}
+              leads={workQueueCustomers}
+              data={datedData}
               onLead={openCustomer}
               connected={crm.connected}
             />
