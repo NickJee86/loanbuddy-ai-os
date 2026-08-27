@@ -236,13 +236,41 @@ export function buildApplicationRegister(leads = [], data = {}) {
 }
 
 export function mergedQualificationRows(leads = [], stateRows = []) {
-  const rows = [...stateRows];
+  const rows = stateRows.map((row) => ({ ...row }));
   const stateLeadIds = new Set(
     stateRows.map((row) => clean(row["Lead ID"])).filter(Boolean),
   );
   for (const lead of leads) {
     const leadId = clean(lead?.id || lead?.raw?.["Lead ID"]);
     if (!leadId || stateLeadIds.has(leadId)) continue;
+    const leadPhone = phoneDigits(
+      lead?.phone || lead?.raw?.["Phone Number"],
+    );
+    const phoneMatch = leadPhone
+      ? rows.findIndex(
+          (row) =>
+            !clean(row["Lead ID"]) &&
+            phoneDigits(
+              row["Phone Number"] ||
+                row["WhatsApp Number"] ||
+                row["Customer Phone"],
+            ) === leadPhone,
+        )
+      : -1;
+    if (phoneMatch >= 0) {
+      rows[phoneMatch] = {
+        ...rows[phoneMatch],
+        "Lead ID": leadId,
+        "Lead Name":
+          clean(rows[phoneMatch]["Lead Name"]) ||
+          clean(lead?.name || lead?.raw?.["Lead Name"]),
+        "Phone Number":
+          clean(rows[phoneMatch]["Phone Number"]) ||
+          clean(lead?.phone || lead?.raw?.["Phone Number"]),
+      };
+      stateLeadIds.add(leadId);
+      continue;
+    }
     const qualification = qualificationSnapshot(lead, {});
     if (!qualification.missing.length) continue;
     rows.push({
