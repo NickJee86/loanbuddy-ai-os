@@ -124,7 +124,6 @@ type CrmResponse = {
   error?: string;
   data?: Record<string, SheetRow[]>;
   fetchedAt?: string;
-  dataUpdatedAt?: string;
   user?: CrmUser;
 };
 
@@ -195,50 +194,36 @@ function mapSheetLead(row: Record<string, string>): Lead {
 
 const navigationSections: Array<{
   label: string;
-  items: Array<{ label: NavKey; icon: string }>;
+  items: Array<{ label: NavKey; title?: string; icon: string }>;
 }> = [
   {
-    label: "Workspace",
+    label: "Daily Work",
     items: [
-      { label: "New Application", icon: "+" },
-      { label: "Dashboard", icon: "▦" },
-      { label: "Action Center", icon: "!" },
+      { label: "Dashboard", title: "Home", icon: "▦" },
+      { label: "Action Center", title: "Today", icon: "!" },
+      { label: "Customers", title: "Customer Records", icon: "◎" },
+      { label: "Work Queue", title: "Work Queue", icon: "◇" },
+      { label: "New Application", title: "New Application", icon: "+" },
+    ],
+  },
+  {
+    label: "Management",
+    items: [
       { label: "Reports", icon: "▥" },
     ],
   },
   {
-    label: "Customers",
-    items: [
-      { label: "Leads", icon: "⌕" },
-      { label: "Applications", icon: "▤" },
-      { label: "Customers", icon: "◎" },
-      { label: "Conversations", icon: "◌" },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { label: "Work Queue", icon: "◇" },
-      { label: "Qualification", icon: "✓" },
-      { label: "Documents", icon: "▤" },
-      { label: "Verification", icon: "◈" },
-      { label: "Credit Assessment", icon: "◫" },
-      { label: "Follow-up", icon: "↻" },
-      { label: "Escalations", icon: "△" },
-    ],
-  },
-  {
-    label: "LMS & Fulfilment",
+    label: "LMS & Disbursement",
     items: [
       { label: "LMS Status", icon: "⬡" },
       { label: "Post-Approval", icon: "→" },
-      { label: "Credit Policy", icon: "▧" },
     ],
   },
   {
     label: "Administration",
     items: [
       { label: "Follow-up Settings", icon: "⏱" },
+      { label: "Credit Policy", icon: "▧" },
       { label: "Audit Log", icon: "≡" },
       { label: "User Management", icon: "⚙" },
     ],
@@ -364,7 +349,7 @@ function Sidebar({
                   <span className="nav-icon" aria-hidden="true">
                     {item.icon}
                   </span>
-                  <span>{item.label}</span>
+                  <span>{item.title || item.label}</span>
                 </button>
               ))}
             </div>
@@ -404,6 +389,8 @@ function Topbar({
   user,
   notificationCount,
   onNotifications,
+  leads,
+  onCustomer,
 }: {
   active: NavKey;
   branch: string;
@@ -414,7 +401,20 @@ function Topbar({
   user?: CrmUser;
   notificationCount: number;
   onNotifications: () => void;
+  leads: Lead[];
+  onCustomer: (lead: Lead) => void;
 }) {
+  const [customerQuery, setCustomerQuery] = useState("");
+  const normalizedQuery = customerQuery.trim().toLowerCase();
+  const customerMatches = normalizedQuery
+    ? leads
+        .filter((lead) =>
+          `${lead.name} ${lead.phone} ${lead.id} ${Object.values(lead.raw).join(" ")}`
+            .toLowerCase()
+            .includes(normalizedQuery),
+        )
+        .slice(0, 6)
+    : [];
   const initials =
     user?.name
       .split(/\s+/)
@@ -433,6 +433,45 @@ function Topbar({
         <h1>{active}</h1>
       </div>
       <div className="topbar-actions">
+        <div className="global-customer-search">
+          <label>
+            <span>⌕</span>
+            <input
+              aria-label="Search all customers"
+              value={customerQuery}
+              onChange={(event) => setCustomerQuery(event.target.value)}
+              placeholder="Search name, phone, IC or Lead ID"
+            />
+          </label>
+          {normalizedQuery && (
+            <div className="global-search-results">
+              {customerMatches.length ? (
+                customerMatches.map((lead) => (
+                  <button
+                    key={lead.id}
+                    onClick={() => {
+                      onCustomer(lead);
+                      setCustomerQuery("");
+                    }}
+                  >
+                    <span className="global-search-avatar">
+                      {lead.name.slice(0, 2).toUpperCase()}
+                    </span>
+                    <span>
+                      <strong>{lead.name}</strong>
+                      <small>{lead.phone} · {lead.id}</small>
+                    </span>
+                    <StageChip stage={lead.stage} />
+                  </button>
+                ))
+              ) : (
+                <div className="global-search-empty">
+                  No customer found
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <label className="select-shell">
           <span>▦</span>
           <select
@@ -1774,18 +1813,24 @@ function Customer360Workspace({
     [leads, data],
   );
   const [query, setQuery] = useState("");
+  const [stageFilter, setStageFilter] = useState("All stages");
   const [selectedId, setSelectedId] = useState(initialLeadId || "");
-  const shown = summaries.filter((summary) =>
-    `${summary.lead.name} ${summary.lead.id} ${summary.lead.phone} ${summary.preview}`
-      .toLowerCase()
-      .includes(query.toLowerCase()),
-  );
+  const [automationBusy, setAutomationBusy] = useState(false);
+  const [automationMessage, setAutomationMessage] = useState("");
+  const customerStages = Array.from(
+    new Set(summaries.map((summary) => summary.lead.stage).filter(Boolean)),
+  ).sort();
+  const shown = summaries.filter((summary) => {
+    const searchable = `${summary.lead.name} ${summary.lead.id} ${summary.lead.phone} ${summary.preview} ${Object.values(summary.lead.raw || {}).join(" ")}`;
+    const matchesQuery = searchable.toLowerCase().includes(query.toLowerCase());
+    const matchesStage =
+      stageFilter === "All stages" || summary.lead.stage === stageFilter;
+    return matchesQuery && matchesStage;
+  });
   const selected =
     shown.find((summary) => summary.lead.id === selectedId) || shown[0] || null;
   const state = selected
-    ? (data.Conversation_State || []).find(
-        (row) => row["Lead ID"] === selected.lead.id,
-      )
+    ? latestRow(data.Conversation_State || [], selected.lead.id)
     : undefined;
   const qualification = selected
     ? qualificationSnapshot(selected.lead, state || {})
@@ -1870,6 +1915,33 @@ function Customer360Workspace({
     (total, item) => total + item.documentCount,
     0,
   );
+  const aiStatus = pick(state || {}, ["AI Status"]) || "ACTIVE";
+  const aiPaused = normalized(aiStatus) === "paused_manual";
+  async function updateCustomerAutomation(operation: "takeover" | "resume_ai") {
+    if (!selected || automationBusy) return;
+    setAutomationBusy(true);
+    setAutomationMessage("");
+    try {
+      const response = await fetch("/api/whatsapp", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ operation, leadId: selected.lead.id }),
+      });
+      const result = (await response.json()) as { error?: string };
+      setAutomationMessage(
+        response.ok
+          ? operation === "takeover"
+            ? "AI and automatic follow-up paused for this customer."
+            : "AI and automatic follow-up resumed for this customer."
+          : result.error || "Unable to update customer automation.",
+      );
+      if (response.ok) onChanged();
+    } catch {
+      setAutomationMessage("Unable to update customer automation.");
+    } finally {
+      setAutomationBusy(false);
+    }
+  }
 
   return (
     <div className="content-stack customer-360-stack">
@@ -1884,18 +1956,30 @@ function Customer360Workspace({
         <aside className="thread-list">
           <div className="thread-list-heading">
             <div>
-              <h2>Customers</h2>
-              <p>One customer, one complete history</p>
+              <h2>Customer Records</h2>
+              <p>One customer · one complete file</p>
             </div>
-            <Chip tone="amber">META PENDING</Chip>
+            <Chip tone="teal">{summaries.length} TOTAL</Chip>
           </div>
           <label className="thread-search">
             <span>⌕</span>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search customer, phone or Lead ID"
+              placeholder="Name, phone, IC or Lead ID"
             />
+          </label>
+          <label className="thread-stage-filter">
+            <span>Stage</span>
+            <select
+              value={stageFilter}
+              onChange={(event) => setStageFilter(event.target.value)}
+            >
+              <option>All stages</option>
+              {customerStages.map((stage) => (
+                <option key={stage}>{stage}</option>
+              ))}
+            </select>
           </label>
           <div className="thread-scroll">
             {shown.length ? (
@@ -1967,8 +2051,19 @@ function Customer360Workspace({
                   >
                     {selected.lead.processingRoute}
                   </Chip>
+                  <Chip tone={aiPaused ? "amber" : "teal"}>
+                    {aiPaused ? "AI PAUSED" : "AI ACTIVE"}
+                  </Chip>
+                  <button
+                    className="account-secondary"
+                    disabled={automationBusy}
+                    onClick={() => updateCustomerAutomation(aiPaused ? "resume_ai" : "takeover")}
+                  >
+                    {automationBusy ? "Updating…" : aiPaused ? "Resume AI" : "Pause AI / Take over"}
+                  </button>
                 </div>
               </header>
+              {automationMessage && <p className="form-message">{automationMessage}</p>}
               <div
                 className="timeline"
                 aria-label={`Conversation with ${selected.lead.name}`}
@@ -2744,7 +2839,7 @@ function PostApprovalWorkspace({
   user?: CrmUser;
   onChanged: () => void;
 }) {
-   const [busy, setBusy] = useState("");
+  const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState(false);
   const cases = useMemo(
@@ -3109,7 +3204,7 @@ function ModulePage({
   }
 
   if (active === "Follow-up") {
-        const queueRows = rows.filter((row) => {
+    const queueRows = rows.filter((row) => {
       const status = normalized(row.Status);
       return !["resolved", "closed", "completed", "cancelled"].includes(
         status,
@@ -3134,7 +3229,10 @@ function ModulePage({
         Source: "Application Register",
       }));
     const followRows = [...queueRows, ...derivedRows].map((row) => {
-      const leadState = latestRow(data.Conversation_State || [], pick(row, ["Lead ID"])) || {};
+      const leadId = pick(row, ["Lead ID"]);
+      const leadState = [...(data.Conversation_State || [])]
+        .reverse()
+        .find((item) => pick(item, ["Lead ID"]) === leadId) || {};
       return {
         ...leadState,
         ...row,
@@ -3144,9 +3242,7 @@ function ModulePage({
         "Last Reminder At": pick(row, ["Last Reminder At", "Last AI Message At"]) !== "—"
           ? pick(row, ["Last Reminder At", "Last AI Message At"])
           : pick(leadState, ["Last AI Message At"]),
-        "AI Status": pick(leadState, ["AI Status"]) === "—"
-          ? "ACTIVE"
-          : pick(leadState, ["AI Status"]),
+        "AI Status": pick(leadState, ["AI Status"]) === "—" ? "ACTIVE" : pick(leadState, ["AI Status"]),
       };
     });
     const qualificationPending = applications.filter(
@@ -3177,10 +3273,7 @@ function ModulePage({
   if (active === "Conversations") {
     const sources = conversationSources(data);
     const conversationSummaries = buildConversationSummaries(filteredLeads, sources);
-    const conversationRows = buildConversationRows(
-      filteredLeads,
-      sources,
-    );
+    const conversationRows = buildConversationRows(filteredLeads, sources);
     const customerMessages = conversationRows.filter(
       (row) => row.Direction === "CUSTOMER",
     ).length;
@@ -4018,31 +4111,24 @@ type FollowUpSettings = {
   finalMinutes: number;
   maxCount: number;
   businessHoursOnly: boolean;
+  businessStart: string;
+  businessEnd: string;
   stopOnReply: boolean;
   stopOnOptOut: boolean;
   informationIncomplete: boolean;
   documentsIncomplete: boolean;
-    businessStart: string;
-  businessEnd: string;
-configured?: boolean;
+  configured?: boolean;
   updatedAt?: string;
 };
 
 const followUpTimingFields = [
-  ["firstMinutes", "Reminder 1", "Recommended: 2 hours"],
-  ["secondMinutes", "Reminder 2", "Recommended: 24 hours"],
-  ["thirdMinutes", "Reminder 3", "Recommended: 3 days"],
-  ["finalMinutes", "Final reminder", "Recommended: 7 days"],
+  ["firstMinutes", "Reminder 1", "Recommended: 2 hours", "Helpful check-in", "Offer assistance and ask for the single next missing item."],
+  ["secondMinutes", "Reminder 2", "Recommended: 24 hours", "Value reminder", "Reconnect the application goal and make document submission easy."],
+  ["thirdMinutes", "Reminder 3", "Recommended: 3 days", "Progress recovery", "Address hesitation and guide the customer back to the application."],
+  ["finalMinutes", "Final reminder", "Recommended: 7 days", "Respectful close", "Give one clear final action without pressure or repeated chasing."],
 ] as const;
 
-const followUpSalesIntent = [
-  ["Helpful check-in", "Offer assistance and ask for the single next missing item."],
-  ["Value reminder", "Reconnect the application goal and make document submission easy."],
-  ["Progress recovery", "Address hesitation and guide the customer back to the application."],
-  ["Respectful close", "Give one clear final action without pressure or repeated chasing."],
-] as const;
-
-  function followUpDuration(minutes: number) {
+function followUpDuration(minutes: number) {
   if (minutes % 1440 === 0) return `${minutes / 1440} day${minutes === 1440 ? "" : "s"}`;
   if (minutes % 60 === 0) return `${minutes / 60} hour${minutes === 60 ? "" : "s"}`;
   return `${minutes} minutes`;
@@ -4068,7 +4154,11 @@ function FollowUpSettingsManagement({ user }: { user?: CrmUser }) {
       .catch((error) => setMessage(error instanceof Error ? error.message : "Unable to load follow-up settings."))
       .finally(() => setLoadingSettings(false));
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    // Loading is intentionally triggered on mount; state updates occur after the request resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load();
+  }, [load]);
 
   const save = async (confirmed = false) => {
     if (settings.enabled && !confirmed) {
@@ -4127,35 +4217,35 @@ function FollowUpSettingsManagement({ user }: { user?: CrmUser }) {
         </div>
         <div className="follow-up-timing-grid">
           {followUpTimingFields.map(([key, label, helper], index) => (
-            <label key={key}>
+            <label key={key} className={index >= settings.maxCount ? "is-inactive" : ""}>
               <span>{index + 1}</span>
               <strong>{label}</strong>
               <input type="number" min="15" step="15" value={settings[key]}
-                disabled={!canManage || busy}
+                disabled={!canManage || busy || index >= settings.maxCount}
                 onChange={(event) => update(key, Number(event.target.value))} />
-              <small>minutes · {followUpDuration(settings[key])}<br />{helper}</small>
+              <small>{index >= settings.maxCount ? "Inactive step" : `minutes · ${followUpDuration(settings[key])}`}<br />{helper}</small>
             </label>
           ))}
         </div>
+        <div className="follow-up-sequence-control">
+          <div><strong>Maximum reminder steps</strong><small>S09 stops after this number of automated reminders. Disabled timing cards will not be sent.</small></div>
+          <label><span>Active steps</span><select value={settings.maxCount} disabled={!canManage || busy} onChange={(event) => update("maxCount", Number(event.target.value))}>{[1, 2, 3, 4].map((count) => <option key={count} value={count}>{count} reminder{count === 1 ? "" : "s"}</option>)}</select></label>
+        </div>
       </section>
-            <section className="panel follow-up-sequence-control">
-        <div><strong>Maximum reminder steps</strong><small>S09 stops after this number of automated reminders. Timing steps above the selected limit will not be sent.</small></div>
-        <label><span>Active steps</span><select value={settings.maxCount} disabled={!canManage || busy} onChange={(event) => update("maxCount", Number(event.target.value))}>{[1, 2, 3, 4].map((count) => <option key={count} value={count}>{count} reminder{count === 1 ? "" : "s"}</option>)}</select></label>
-      </section>
-<section className="panel follow-up-rules">
+      <section className="panel follow-up-rules">
         <div className="table-toolbar"><div><h2>Safety & Case Rules</h2><p>Mandatory stop controls cannot be disabled.</p></div></div>
         <div className="follow-up-rule-grid">
           {([
             ["informationIncomplete", "Incomplete information", "Follow up when application questions are unfinished."],
             ["documentsIncomplete", "Incomplete documents", "Follow up only for documents genuinely still missing."],
-                    ["businessHoursOnly", "Business hours only", "Hold reminders outside approved operating hours."],
+            ["businessHoursOnly", "Business hours only", "Hold reminders outside approved operating hours."],
             ["stopOnReply", "Stop on customer reply", "Mandatory — prevents messages after the customer responds."],
             ["stopOnOptOut", "Stop on pause / opt-out", "Mandatory — respects refusal, pause and unsubscribe intent."],
           ] as const).map(([key, label, copy]) => (
             <label key={key}>
               <input type="checkbox" checked={settings[key]}
                 disabled={!canManage || busy || key === "stopOnReply" || key === "stopOnOptOut"}
-                                onChange={(event) => update(key, event.target.checked)} />
+                onChange={(event) => update(key, event.target.checked)} />
               <span><strong>{label}</strong><small>{copy}</small></span>
             </label>
           ))}
@@ -4165,13 +4255,13 @@ function FollowUpSettingsManagement({ user }: { user?: CrmUser }) {
           <label><span>Start</span><input type="time" value={settings.businessStart} disabled={!canManage || busy || !settings.businessHoursOnly} onChange={(event) => update("businessStart", event.target.value)} /></label>
           <label><span>End</span><input type="time" value={settings.businessEnd} disabled={!canManage || busy || !settings.businessHoursOnly} onChange={(event) => update("businessEnd", event.target.value)} /></label>
         </div>
-</section>
-            <section className="panel follow-up-preview">
-                <div className="table-toolbar"><div><h2>Sequence Preview & Sales Intent</h2><p>The AI creates a fresh message from the live case, answers the customer first and asks only for genuinely missing information or documents.</p></div><Chip tone="teal">{settings.maxCount} ACTIVE</Chip></div>
+      </section>
+      <section className="panel follow-up-preview">
+        <div className="table-toolbar"><div><h2>Sequence Preview & Sales Intent</h2><p>The AI writes a fresh, natural message from the live case. It must persuade helpfully, answer the customer first and request only genuinely missing information or documents.</p></div><Chip tone="teal">{settings.maxCount} ACTIVE</Chip></div>
         <div className="follow-up-preview-grid">
-          {followUpTimingFields.map(([key, label], index) => (
+          {followUpTimingFields.map(([key, label, , intent, copy], index) => (
             <article key={key} className={index >= settings.maxCount ? "is-inactive" : ""}>
-              <span>{index + 1}</span><div><strong>{label} · {followUpSalesIntent[index][0]}</strong><small>{followUpSalesIntent[index][1]}</small><em>{index >= settings.maxCount ? "Disabled by maximum steps" : "After " + followUpDuration(settings[key]) + " inactive"}</em></div>
+              <span>{index + 1}</span><div><strong>{label} · {intent}</strong><small>{copy}</small><em>{index >= settings.maxCount ? "Disabled by maximum steps" : `After ${followUpDuration(settings[key])} inactive`}</em></div>
             </article>
           ))}
         </div>
@@ -4181,7 +4271,7 @@ function FollowUpSettingsManagement({ user }: { user?: CrmUser }) {
           <div><strong>Message standard</strong><small>Natural Malaysian language, no repeated question, no false approval promise, and one clear next action.</small></div>
         </div>
       </section>
-{confirmEnable && canManage && (
+      {confirmEnable && canManage && (
         <section className="panel follow-up-confirm">
           <div><strong>Enable automatic follow-up?</strong><p>This saves the active schedule for S09. Verify the Make scenario connection before production sending.</p></div>
           <div><button className="account-secondary" onClick={() => setConfirmEnable(false)} disabled={busy}>Cancel</button><button onClick={() => void save(true)} disabled={busy}>{busy ? "Saving…" : "Confirm Enable"}</button></div>
@@ -4195,7 +4285,6 @@ function FollowUpSettingsManagement({ user }: { user?: CrmUser }) {
     </div>
   );
 }
-
 
 type PolicyRecord = Record<string, string> & {
   activation?: { valid: boolean; errors: string[] };
@@ -5296,10 +5385,8 @@ export default function Home() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [crm, setCrm] = useState<CrmResponse>({ connected: false });
   const [loading, setLoading] = useState(true);
-  const [refreshError, setRefreshError] = useState("");
   const loadCrm = useCallback(() => {
     setLoading(true);
-    setRefreshError("");
     fetch("/api/crm?refresh=1", { cache: "no-store" })
       .then(async (response) => {
         if (response.status === 401) {
@@ -5309,20 +5396,15 @@ export default function Home() {
         return response.json() as Promise<CrmResponse>;
       })
       .then((result) => {
-        if (result) {
-          setCrm(result);
-          if (!result.connected)
-            setRefreshError(result.error || "Unable to refresh CRM data.");
-        }
+        if (result) setCrm(result);
       })
-      .catch(() => {
-        setRefreshError("Unable to refresh CRM data.");
+      .catch(() =>
         setCrm((current) => ({
           connected: false,
           error: "Connection unavailable",
           user: current.user,
-        }));
-      })
+        })),
+      )
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
@@ -5439,6 +5521,8 @@ export default function Home() {
           user={crm.user}
           notificationCount={actionCenter.totalActions}
           onNotifications={() => setActive("Action Center")}
+          leads={allSourceLeads}
+          onCustomer={openCustomer}
         />
         <div className="page-content">
           <div className="page-intro">
@@ -5451,16 +5535,12 @@ export default function Home() {
                     ? `Showing a stale cached snapshot of ${crm.spreadsheet}; live Google Sheets access is unavailable.`
                     : `Connected to ${crm.spreadsheet}.`
                   : `Google Sheets unavailable${crm.error ? `: ${crm.error}` : "."}`}
-              {!loading && crm.dataUpdatedAt
-                ? ` Last refreshed ${new Date(crm.dataUpdatedAt).toLocaleString("en-MY", {
-                    timeZone: "Asia/Kuala_Lumpur",
-                    hour12: true,
-                  })}.`
-                : ""}
-              {refreshError ? ` ${refreshError}` : ""}
             </p>
-            <button className="safe-mode" onClick={loadCrm} disabled={loading}>
-              {loading ? "↻ REFRESHING…" : crm.connected ? "↻ REFRESH DATA" : "↻ RETRY CONNECTION"}
+            <button className="safe-mode" onClick={loadCrm}>
+              ●{" "}
+              {crm.connected
+                ? `PRODUCTION · ${crm.user?.role.toUpperCase() || "SECURE"}`
+                : "RETRY CONNECTION"}
             </button>
           </div>
           {active === "New Application" ? (
