@@ -460,7 +460,7 @@ function Topbar({
                     </span>
                     <span>
                       <strong>{lead.name}</strong>
-                      <small>{lead.phone} · {lead.id}</small>
+                      <small>{customerReference(lead)}</small>
                     </span>
                     <StageChip stage={lead.stage} />
                   </button>
@@ -1342,6 +1342,14 @@ function displayTime(value: string) {
   }).format(date);
 }
 
+function customerReference(lead: Pick<Lead, "phone" | "id">) {
+  const phone = String(lead.phone || "").trim();
+  const id = String(lead.id || "").trim();
+  if (!phone) return id || "—";
+  if (!id || phone === id) return phone;
+  return `${phone} · ${id}`;
+}
+
 function safeSharePointUrl(value: string) {
   try {
     const url = new URL(value);
@@ -1978,9 +1986,7 @@ function Customer360Workspace({
                       <strong>{summary.lead.name}</strong>
                       <time>{displayTime(summary.lastAt)}</time>
                     </span>
-                    <small>
-                      {summary.lead.phone} · {summary.lead.id}
-                    </small>
+                    <small>{customerReference(summary.lead)}</small>
                     <em>{summary.preview}</em>
                     <span className="thread-meta">
                       <b>
@@ -2010,9 +2016,7 @@ function Customer360Workspace({
               <header className="conversation-header">
                 <div>
                   <h2>{selected.lead.name}</h2>
-                  <p>
-                    {selected.lead.phone} · {selected.lead.id}
-                  </p>
+                  <p>{customerReference(selected.lead)}</p>
                 </div>
                 <div className="conversation-header-actions">
                   <Chip
@@ -2625,9 +2629,7 @@ function DocumentQueue({
                 <header>
                   <div>
                     <h3>{summary.lead.name}</h3>
-                    <p>
-                      {summary.lead.id} · {summary.lead.phone}
-                    </p>
+                    <p>{customerReference(summary.lead)}</p>
                   </div>
                   <Chip
                     tone={
@@ -5426,6 +5428,14 @@ export default function Home() {
     () => filteredLeads.filter((lead) => !isSyntheticLead(lead.raw)),
     [filteredLeads],
   );
+  const searchableCustomers = useMemo(
+    () =>
+      buildConversationSummaries(
+        allSourceLeads,
+        conversationSources(crm.data || {}),
+      ).map((summary) => summary.lead),
+    [allSourceLeads, crm.data],
+  );
   const actionCenter = useMemo(
     () =>
       buildActionCenter({
@@ -5496,7 +5506,7 @@ export default function Home() {
           user={crm.user}
           notificationCount={actionCenter.totalActions}
           onNotifications={() => setActive("Action Center")}
-          leads={allSourceLeads}
+          leads={searchableCustomers}
           onCustomer={openCustomer}
         />
         <div className="page-content">
