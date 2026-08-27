@@ -95,3 +95,15 @@ export function buildCreditPolicyEngineConfig(enabled, updatedAt) {
     "Last Updated": updatedAt,
   };
 }
+
+export function cloneCreditPolicyDraft(policy = {}, template = {}) {
+  const draft = { ...template };
+  for (const key of Object.keys(template)) {
+    if (["Policy Version", "Effective From"].includes(key)) continue;
+    if (policy[key] !== undefined && policy[key] !== null)
+      draft[key] = String(policy[key]);
+  }
+  draft["Policy Version"] = "";
+  draft["Effective From"] = "";
+  return draft;
+}

@@ -37,7 +37,10 @@ import {
 } from "./case-workspace.mjs";
 import ManagementReports from "./reports";
 import { evaluateLmsQueueEligibility } from "./lms-queue.mjs";
-import { readCreditPolicyEngineConfig } from "./credit-policy-control.mjs";
+import {
+  cloneCreditPolicyDraft,
+  readCreditPolicyEngineConfig,
+} from "./credit-policy-control.mjs";
 import { validateManagementApproval } from "./credit-policy.mjs";
 import { buildLmsStatus } from "./lms-status.mjs";
 import {
@@ -4489,6 +4492,18 @@ function CreditPolicyManagement({ user }: { user?: CrmUser }) {
         : `Confirm retirement of ${label}. No new assessment can use it after retirement.`,
     );
   }
+  function copyToDraft(policy: PolicyRecord) {
+    setDraft(cloneCreditPolicyDraft(policy, initialPolicy));
+    setPendingAction(null);
+    setManagementApproval(initialManagementApproval);
+    setMessage(
+      `${policy["Policy Code"]}/${policy["Policy Version"]} values loaded into a new DRAFT form. Enter a new version and effective date, then review every threshold before creating it. Nothing has been saved or activated.`,
+    );
+    document.querySelector(".policy-editor")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
   const active = policies.filter((policy) => policy.Status === "ACTIVE").length;
   const engineBlockers = (engine?.reasons || []).slice(0, 4).join(", ");
   const approvalReadiness = useMemo(
@@ -4878,6 +4893,14 @@ function CreditPolicyManagement({ user }: { user?: CrmUser }) {
                             </>
                           ) : (
                             <>
+                              <button
+                                type="button"
+                                className="account-secondary"
+                                disabled={Boolean(busy)}
+                                onClick={() => copyToDraft(policy)}
+                              >
+                                Copy to new DRAFT
+                              </button>
                               <button
                                 type="button"
                                 disabled={

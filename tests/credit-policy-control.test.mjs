@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildCreditPolicyEngineConfig,
+  cloneCreditPolicyDraft,
   evaluateCreditPolicyEngineReadiness,
   readCreditPolicyEngineConfig,
 } from "../app/credit-policy-control.mjs";
@@ -108,4 +109,22 @@ test("the config record stores one Admin-controlled ON/OFF value without thresho
   assert.equal(record["Config Value"], "OFF");
   assert.equal(record["Config Key"], "CREDIT_POLICY_ENGINE_ENABLED");
   assert.equal("Minimum Verified Net Income" in record, false);
+});
+
+test("copying a policy creates an unsaved draft with a new version gate", () => {
+  const template = {
+    "Policy Code": "LB_PERSONAL_LOAN",
+    "Policy Version": "",
+    "Effective From": "",
+    "Minimum Verified Net Income": "",
+    "Required Documents": "",
+  };
+  const draft = cloneCreditPolicyDraft(validActivePolicy, template);
+  assert.equal(draft["Policy Code"], "LB_PERSONAL_LOAN");
+  assert.equal(draft["Minimum Verified Net Income"], "1700");
+  assert.equal(draft["Required Documents"], "IC_FRONT,IC_BACK,PAYSLIP,BANK_STATEMENT");
+  assert.equal(draft["Policy Version"], "");
+  assert.equal(draft["Effective From"], "");
+  assert.equal("Status" in draft, false);
+  assert.equal("Approved By" in draft, false);
 });
