@@ -1269,12 +1269,13 @@ function RecordTable({
               {columns.map((column) => (
                 <th key={column.label}>{column.label}</th>
               ))}
+              {onOpenLead && <th>Open</th>}
             </tr>
           </thead>
           <tbody>
             {shown.length === 0 ? (
               <tr>
-                <td colSpan={columns.length}>
+                <td colSpan={columns.length + (onOpenLead ? 1 : 0)}>
                   <strong>No records</strong>
                   <span>This Google Sheet log is currently empty.</span>
                 </td>
@@ -1301,6 +1302,22 @@ function RecordTable({
                         )}
                       </td>
                     ))}
+                    {onOpenLead && (
+                      <td>
+                        {leadId !== "—" && (
+                          <button
+                            className="row-action"
+                            aria-label={`Open customer ${leadId}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onOpenLead(leadId);
+                            }}
+                          >
+                            →
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 );
               })
