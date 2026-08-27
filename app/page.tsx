@@ -231,6 +231,13 @@ const navigationSections: Array<{
   },
 ];
 
+function navigationTitle(active: NavKey) {
+  const item = navigationSections
+    .flatMap((section) => section.items)
+    .find((entry) => entry.label === active);
+  return item?.title || active;
+}
+
 const pageDescriptions: Record<NavKey, string> = {
   "New Application":
     "Create, save and submit a manual customer application securely.",
@@ -431,7 +438,7 @@ function Topbar({
     <header className="topbar">
       <div>
         <p className="eyebrow">LOANBUDDY CRM</p>
-        <h1>{active}</h1>
+        <h1>{navigationTitle(active)}</h1>
       </div>
       <div className="topbar-actions">
         <div className="global-customer-search">
