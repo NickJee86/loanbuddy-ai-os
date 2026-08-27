@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./follow-up.css";
+import "./customer-navigation.css";
 
 
 const geistSans = Geist({
@@ -44,5 +45,4 @@ className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 </html>
 );
 }
-
 

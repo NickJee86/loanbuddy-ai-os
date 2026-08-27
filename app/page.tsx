@@ -195,50 +195,36 @@ function mapSheetLead(row: Record<string, string>): Lead {
 
 const navigationSections: Array<{
   label: string;
-  items: Array<{ label: NavKey; icon: string }>;
+  items: Array<{ label: NavKey; title?: string; icon: string }>;
 }> = [
   {
-    label: "Workspace",
+    label: "Daily Work",
     items: [
-      { label: "New Application", icon: "+" },
-      { label: "Dashboard", icon: "▦" },
-      { label: "Action Center", icon: "!" },
+      { label: "Dashboard", title: "Home", icon: "▦" },
+      { label: "Action Center", title: "Today", icon: "!" },
+      { label: "Customers", title: "Customer Records", icon: "◎" },
+      { label: "Work Queue", title: "Work Queue", icon: "◇" },
+      { label: "New Application", title: "New Application", icon: "+" },
+    ],
+  },
+  {
+    label: "Management",
+    items: [
       { label: "Reports", icon: "▥" },
     ],
   },
   {
-    label: "Customers",
-    items: [
-      { label: "Leads", icon: "⌕" },
-      { label: "Applications", icon: "▤" },
-      { label: "Customers", icon: "◎" },
-      { label: "Conversations", icon: "◌" },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { label: "Work Queue", icon: "◇" },
-      { label: "Qualification", icon: "✓" },
-      { label: "Documents", icon: "▤" },
-      { label: "Verification", icon: "◈" },
-      { label: "Credit Assessment", icon: "◫" },
-      { label: "Follow-up", icon: "↻" },
-      { label: "Escalations", icon: "△" },
-    ],
-  },
-  {
-    label: "LMS & Fulfilment",
+    label: "LMS & Disbursement",
     items: [
       { label: "LMS Status", icon: "⬡" },
       { label: "Post-Approval", icon: "→" },
-      { label: "Credit Policy", icon: "▧" },
     ],
   },
   {
     label: "Administration",
     items: [
       { label: "Follow-up Settings", icon: "⏱" },
+      { label: "Credit Policy", icon: "▧" },
       { label: "Audit Log", icon: "≡" },
       { label: "User Management", icon: "⚙" },
     ],
@@ -364,7 +350,7 @@ function Sidebar({
                   <span className="nav-icon" aria-hidden="true">
                     {item.icon}
                   </span>
-                  <span>{item.label}</span>
+                  <span>{item.title || item.label}</span>
                 </button>
               ))}
             </div>
@@ -404,6 +390,8 @@ function Topbar({
   user,
   notificationCount,
   onNotifications,
+  leads,
+  onCustomer,
 }: {
   active: NavKey;
   branch: string;
@@ -414,7 +402,20 @@ function Topbar({
   user?: CrmUser;
   notificationCount: number;
   onNotifications: () => void;
+  leads: Lead[];
+  onCustomer: (lead: Lead) => void;
 }) {
+  const [customerQuery, setCustomerQuery] = useState("");
+  const normalizedQuery = customerQuery.trim().toLowerCase();
+  const customerMatches = normalizedQuery
+    ? leads
+        .filter((lead) =>
+          `${lead.name} ${lead.phone} ${lead.id} ${Object.values(lead.raw).join(" ")}`
+            .toLowerCase()
+            .includes(normalizedQuery),
+        )
+        .slice(0, 6)
+    : [];
   const initials =
     user?.name
       .split(/\s+/)
@@ -433,6 +434,43 @@ function Topbar({
         <h1>{active}</h1>
       </div>
       <div className="topbar-actions">
+        <div className="global-customer-search">
+          <label>
+            <span>⌕</span>
+            <input
+              aria-label="Search all customers"
+              value={customerQuery}
+              onChange={(event) => setCustomerQuery(event.target.value)}
+              placeholder="Search name, phone, IC or Lead ID"
+            />
+          </label>
+          {normalizedQuery && (
+            <div className="global-search-results">
+              {customerMatches.length ? (
+                customerMatches.map((lead) => (
+                  <button
+                    key={lead.id}
+                    onClick={() => {
+                      onCustomer(lead);
+                      setCustomerQuery("");
+                    }}
+                  >
+                    <span className="global-search-avatar">
+                      {lead.name.slice(0, 2).toUpperCase()}
+                    </span>
+                    <span>
+                      <strong>{lead.name}</strong>
+                      <small>{lead.phone} · {lead.id}</small>
+                    </span>
+                    <StageChip stage={lead.stage} />
+                  </button>
+                ))
+              ) : (
+                <div className="global-search-empty">No customer found</div>
+              )}
+            </div>
+          )}
+        </div>
         <label className="select-shell">
           <span>▦</span>
           <select
@@ -1774,12 +1812,18 @@ function Customer360Workspace({
     [leads, data],
   );
   const [query, setQuery] = useState("");
+  const [stageFilter, setStageFilter] = useState("All stages");
   const [selectedId, setSelectedId] = useState(initialLeadId || "");
-  const shown = summaries.filter((summary) =>
-    `${summary.lead.name} ${summary.lead.id} ${summary.lead.phone} ${summary.preview}`
-      .toLowerCase()
-      .includes(query.toLowerCase()),
-  );
+  const customerStages = Array.from(
+    new Set(summaries.map((summary) => summary.lead.stage).filter(Boolean)),
+  ).sort();
+  const shown = summaries.filter((summary) => {
+    const searchable = `${summary.lead.name} ${summary.lead.id} ${summary.lead.phone} ${summary.preview} ${Object.values(summary.lead.raw || {}).join(" ")}`;
+    const matchesQuery = searchable.toLowerCase().includes(query.toLowerCase());
+    const matchesStage =
+      stageFilter === "All stages" || summary.lead.stage === stageFilter;
+    return matchesQuery && matchesStage;
+  });
   const selected =
     shown.find((summary) => summary.lead.id === selectedId) || shown[0] || null;
   const state = selected
@@ -1884,18 +1928,30 @@ function Customer360Workspace({
         <aside className="thread-list">
           <div className="thread-list-heading">
             <div>
-              <h2>Customers</h2>
-              <p>One customer, one complete history</p>
+              <h2>Customer Records</h2>
+              <p>One customer · one complete file</p>
             </div>
-            <Chip tone="amber">META PENDING</Chip>
+            <Chip tone="teal">{summaries.length} TOTAL</Chip>
           </div>
           <label className="thread-search">
             <span>⌕</span>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search customer, phone or Lead ID"
+              placeholder="Name, phone, IC or Lead ID"
             />
+          </label>
+          <label className="thread-stage-filter">
+            <span>Stage</span>
+            <select
+              value={stageFilter}
+              onChange={(event) => setStageFilter(event.target.value)}
+            >
+              <option>All stages</option>
+              {customerStages.map((stage) => (
+                <option key={stage}>{stage}</option>
+              ))}
+            </select>
           </label>
           <div className="thread-scroll">
             {shown.length ? (
@@ -5439,6 +5495,8 @@ export default function Home() {
           user={crm.user}
           notificationCount={actionCenter.totalActions}
           onNotifications={() => setActive("Action Center")}
+          leads={allSourceLeads}
+          onCustomer={openCustomer}
         />
         <div className="page-content">
           <div className="page-intro">

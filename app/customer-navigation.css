@@ -1,0 +1,29 @@
+.global-customer-search {
+  position: relative;
+  width: min(390px, 30vw);
+}
+.global-customer-search > label {
+  display: flex; height: 42px; align-items: center; gap: 9px; padding: 0 12px;
+  color: #597184; background: #f8fbfc; border: 1px solid #bfd0db; border-radius: 9px;
+}
+.global-customer-search > label:focus-within { background: #fff; border-color: #11b8aa; box-shadow: 0 0 0 3px #11b8aa1f; }
+.global-customer-search input { width: 100%; color: var(--ink); background: transparent; border: 0; outline: 0; font-size: 12px; }
+.global-search-results {
+  position: absolute; z-index: 80; top: 48px; left: 0; width: 100%; padding: 6px;
+  background: #fff; border: 1px solid #cbd9e2; border-radius: 10px; box-shadow: 0 16px 34px #082b4930;
+}
+.global-search-results > button {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; width: 100%; align-items: center;
+  gap: 9px; padding: 9px; text-align: left; background: #fff; border: 0; border-radius: 8px;
+}
+.global-search-results > button:hover { background: #eef9f7; }
+.global-search-results > button > span:nth-child(2) { min-width: 0; }
+.global-search-results strong, .global-search-results small { display: block; }
+.global-search-results strong { overflow: hidden; color: #23445b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.global-search-results small { overflow: hidden; margin-top: 3px; color: #718695; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.global-search-avatar { display: grid; width: 32px; height: 32px; place-items: center; color: #087d75; font-size: 9px; font-weight: 850; background: #dff5f1; border-radius: 50%; }
+.global-search-empty { padding: 18px; color: #6b8191; font-size: 10px; text-align: center; }
+.thread-stage-filter { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; margin: 8px 12px 0; color: #60798b; font-size: 8px; font-weight: 800; }
+.thread-stage-filter select { min-width: 0; height: 34px; padding: 0 8px; color: #27475e; font-size: 9px; font-weight: 750; background: #fff; border: 1px solid #cdd9e2; border-radius: 7px; }
+@media (max-width: 1200px) { .global-customer-search { width: 280px; } .topbar .select-shell { display: none; } }
+@media (max-width: 820px) { .global-customer-search { width: min(52vw, 330px); } .global-customer-search input { font-size: 10px; } .profile-button > div { display: none; } }
