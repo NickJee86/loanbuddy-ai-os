@@ -1246,6 +1246,13 @@ function RecordTable({
   const shown = rows.filter((row) =>
     Object.values(row).join(" ").toLowerCase().includes(query.toLowerCase()),
   );
+  const openableLeadId = (row: SheetRow) => {
+    const value = pick(row, ["Lead ID"]).trim();
+    return /^(—|N\/?A|NONE|NULL)$/i.test(value) ? "" : value;
+  };
+  const hasOpenAction = Boolean(
+    onOpenLead && shown.some((row) => openableLeadId(row)),
+  );
   return (
     <section className="panel table-panel">
       <div className="table-toolbar">
@@ -1272,28 +1279,28 @@ function RecordTable({
               {columns.map((column) => (
                 <th key={column.label}>{column.label}</th>
               ))}
-              {onOpenLead && <th>Open</th>}
+              {hasOpenAction && <th>Open</th>}
             </tr>
           </thead>
           <tbody>
             {shown.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + (onOpenLead ? 1 : 0)}>
+                <td colSpan={columns.length + (hasOpenAction ? 1 : 0)}>
                   <strong>No records</strong>
                   <span>This Google Sheet log is currently empty.</span>
                 </td>
               </tr>
             ) : (
               shown.map((row, index) => {
-                const leadId = pick(row, ["Lead ID"]);
+                const leadId = openableLeadId(row);
                 return (
                   <tr
                     className={
-                      onOpenLead && leadId !== "—" ? "clickable-row" : ""
+                      onOpenLead && leadId ? "clickable-row" : ""
                     }
                     key={`${pick(row, ["Lead ID", "Verification ID", "Scoring ID", "Received ID", "Escalation ID"])}-${index}`}
                     onClick={() => {
-                      if (onOpenLead && leadId !== "—") onOpenLead(leadId);
+                      if (onOpenLead && leadId) onOpenLead(leadId);
                     }}
                   >
                     {columns.map((column, columnIndex) => (
@@ -1305,15 +1312,15 @@ function RecordTable({
                         )}
                       </td>
                     ))}
-                    {onOpenLead && (
+                    {hasOpenAction && (
                       <td>
-                        {leadId !== "—" && (
+                        {leadId && (
                           <button
                             className="row-action"
                             aria-label={`Open customer ${leadId}`}
                             onClick={(event) => {
                               event.stopPropagation();
-                              onOpenLead(leadId);
+                              onOpenLead?.(leadId);
                             }}
                           >
                             →
