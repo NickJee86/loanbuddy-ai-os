@@ -234,6 +234,27 @@ test("qualification queue preserves an existing state row without adding a dupli
   assert.deepEqual(result, [existing]);
 });
 
+test("qualification queue merges a pre-lead state row by phone", () => {
+  const preLead = {
+    id: "60120000088",
+    name: "WhatsApp User",
+    phone: "60120000088",
+    owner: "AI managed",
+    processingRoute: "AI_DIRECT",
+    raw: {},
+  };
+  const existing = {
+    "Phone Number": "+60 12-000 0088",
+    "Current Step": "ASK_LOAN_PURPOSE",
+    "Qualification Status": "IN_PROGRESS",
+  };
+  const result = mergedQualificationRows([preLead], [existing]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0]["Lead ID"], preLead.id);
+  assert.equal(result[0]["Lead Name"], preLead.name);
+  assert.equal(result[0]["Current Step"], "ASK_LOAN_PURPOSE");
+});
+
 test("verification confidence is consistently displayed as a percentage", () => {
   assert.equal(formatConfidence("0.92"), "92%");
   assert.equal(formatConfidence("54"), "54%");
