@@ -4161,7 +4161,10 @@ function FollowUpSettingsManagement({ user }: { user?: CrmUser }) {
       .catch((error) => setMessage(error instanceof Error ? error.message : "Unable to load follow-up settings."))
       .finally(() => setLoadingSettings(false));
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const initialLoad = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(initialLoad);
+  }, [load]);
 
   const save = async (confirmed = false) => {
     if (settings.enabled && !confirmed) {
