@@ -206,6 +206,7 @@ const navigationSections: Array<{
       { label: "Dashboard", title: "Home", icon: "▦" },
       { label: "Action Center", title: "Today", icon: "!" },
       { label: "Customers", title: "Customer Records", icon: "◎" },
+      { label: "Conversations", title: "WhatsApp Chat", icon: "◉" },
       { label: "Work Queue", title: "Work Queue", icon: "◇" },
       { label: "New Application", title: "New Application", icon: "+" },
     ],
