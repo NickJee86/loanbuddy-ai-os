@@ -139,6 +139,24 @@ test("manual CRM outbox messages use the production Message Content field", () =
   assert.equal(timeline[0].source, "Message Outbox");
 });
 
+test("outbound WhatsApp media remains visible without a caption", () => {
+  const timeline = buildConversationTimeline("L-MEDIA", {
+    messageOutbox: [{
+      "Message ID": "CRM-WA-MEDIA-1",
+      "Lead ID": "L-MEDIA",
+      "Attachment Type": "image",
+      "Attachment Reference": "media-1",
+      "Attachment File Name": "offer.png",
+      "Created Date": "2026-08-28T01:00:00.000Z",
+      "Delivery Status": "ACCEPTED",
+    }],
+  });
+  assert.equal(timeline.length, 1);
+  assert.equal(timeline[0].text, "Image");
+  assert.equal(timeline[0].attachmentFileName, "offer.png");
+  assert.equal(timeline[0].attachmentType, "image");
+});
+
 test("SharePoint filename is recovered when legacy log rows have no filename column", () => {
   const checklist = buildDocumentChecklist("LB-2", [{
     "Lead ID": "LB-2",

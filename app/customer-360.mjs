@@ -69,6 +69,9 @@ function messageEvent(row, leadId, direction, text, at, source, index) {
     source,
     messageId,
     status: value(row, ["Status", "Process Status", "Delivery Status"]),
+    attachmentType: value(row, ["Attachment Type"]).toLowerCase(),
+    attachmentReference: value(row, ["Attachment Reference"]),
+    attachmentFileName: value(row, ["Attachment File Name"]),
   };
 }
 
@@ -100,19 +103,18 @@ function messageDeduplicationKey(event) {
 }
 
 export function buildConversationTimeline(leadId, sources = {}) {
-
   function isReplyLogCopyOfInbox(event, events) {
-  if (event.type !== "message" || event.direction !== "customer" || event.source !== "Customer Reply Log") return false;
-  const eventTime = timeValue(event.at);
-  return events.some((candidate) =>
-    candidate.type === "message" &&
-    candidate.direction === "customer" &&
-    candidate.source === "Customer Inbox" &&
-    candidate.leadId === event.leadId &&
-    normalizedMessageText(candidate.text) === normalizedMessageText(event.text) &&
-    Math.abs(timeValue(candidate.at) - eventTime) <= 15000
-  );
-}
+    if (event.type !== "message" || event.direction !== "customer" || event.source !== "Customer Reply Log") return false;
+    const eventTime = timeValue(event.at);
+    return events.some((candidate) =>
+      candidate.type === "message" &&
+      candidate.direction === "customer" &&
+      candidate.source === "Customer Inbox" &&
+      candidate.leadId === event.leadId &&
+      normalizedMessageText(candidate.text) === normalizedMessageText(event.text) &&
+      Math.abs(timeValue(candidate.at) - eventTime) <= 15000
+    );
+  }
   const events = [];
   rowsForLead(sources.customerInbox, leadId).forEach((row, index) => {
     const text = value(row, ["Customer Message", "Message", "Message Text", "Text"]);
@@ -129,7 +131,8 @@ export function buildConversationTimeline(leadId, sources = {}) {
 
   rowsForLead(sources.messageOutbox, leadId).forEach((row, index) => {
     const text = value(row, ["Message Content", "AI Response", "Outbound Message", "Message Body", "Message", "Message Text"]);
-    if (text) events.push(messageEvent(row, leadId, "ai", text, timestamp(row, ["Timestamp", "Sent Date", "Created Date", "Scheduled Time"]), "Message Outbox", index));
+    const attachmentFileName = value(row, ["Attachment File Name"]);
+    if (text || attachmentFileName) events.push(messageEvent(row, leadId, "ai", text || (value(row, ["Attachment Type"]).toLowerCase() === "image" ? "Image" : "File"), timestamp(row, ["Timestamp", "Sent Date", "Created Date", "Scheduled Time"]), "Message Outbox", index));
   });
 
   rowsForLead(sources.documents, leadId).forEach((row, index) => {
@@ -205,7 +208,7 @@ export function buildConversationTimeline(leadId, sources = {}) {
 
   const deduped = new Map();
   for (const event of events) {
-        if (isReplyLogCopyOfInbox(event, events)) continue;
+    if (isReplyLogCopyOfInbox(event, events)) continue;
     const contentKey = event.type === "document"
       ? `${event.type}|${event.leadId}|${event.documentType}|${event.fileName}|${event.at}`
       : event.type === "activity"

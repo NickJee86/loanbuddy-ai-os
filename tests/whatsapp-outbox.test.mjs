@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildManualOutboxRecord, validateManualWhatsApp } from "../app/whatsapp-outbox.mjs";
+import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMediaPayload, validateManualWhatsApp, validateWhatsAppAttachment } from "../app/whatsapp-outbox.mjs";
 
 test("normalizes Malaysian mobile and validates content", () => {
   assert.deepEqual(validateManualWhatsApp({ leadId: "L1", phone: "016-896 8888", message: " Hi " }), { ok: true, leadId: "L1", phone: "60168968888", message: "Hi" });
@@ -12,4 +12,18 @@ test("builds a pending CRM WhatsApp outbox row", () => {
 test("rejects empty and invalid messages", () => {
   assert.equal(validateManualWhatsApp({ leadId: "L1", phone: "123", message: "x" }).ok, false);
   assert.equal(validateManualWhatsApp({ leadId: "L1", phone: "60168968888", message: " " }).ok, false);
+});
+test("validates supported WhatsApp attachments and limits", () => {
+  const image = validateWhatsAppAttachment({ leadId: "L1", phone: "016-896 8888", fileName: "offer.jpg", mimeType: "image/jpeg", size: 1024, caption: "Offer" });
+  assert.equal(image.ok, true); assert.equal(image.attachmentType, "image");
+  assert.equal(validateWhatsAppAttachment({ leadId: "L1", phone: "60168968888", fileName: "x.exe", mimeType: "application/octet-stream", size: 10 }).ok, false);
+  assert.equal(validateWhatsAppAttachment({ leadId: "L1", phone: "60168968888", fileName: "x.png", mimeType: "image/png", size: 6 * 1024 * 1024 }).ok, false);
+});
+test("builds Meta image and document payloads", () => {
+  assert.deepEqual(buildWhatsAppMediaPayload({ attachmentType: "image", mediaId: "m1", phone: "60168968888", caption: "Hi" }), { messaging_product: "whatsapp", recipient_type: "individual", to: "60168968888", type: "image", image: { id: "m1", caption: "Hi" } });
+  assert.equal(buildWhatsAppMediaPayload({ attachmentType: "document", mediaId: "m2", phone: "60168968888", fileName: "form.pdf" }).document.filename, "form.pdf");
+});
+test("builds a sent media outbox row", () => {
+  const row = buildManualMediaOutboxRecord({ leadId: "L1", phone: "60168968888", fileName: "offer.png", mimeType: "image/png", size: 1024, caption: "Offer", mediaId: "media-1" }, "2026-08-28T00:00:00.000Z", "wamid-1");
+  assert.equal(row["Message Type"], "IMAGE"); assert.equal(row["Attachment Reference"], "media-1"); assert.equal(row["Delivery Status"], "ACCEPTED");
 });
