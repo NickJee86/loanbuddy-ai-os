@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./follow-up.css";
 import "./customer-navigation.css";
+import "./whatsapp-media.css";
 
 
 const geistSans = Geist({
@@ -45,4 +46,3 @@ className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 </html>
 );
 }
-
