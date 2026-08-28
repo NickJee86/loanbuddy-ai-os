@@ -4130,6 +4130,10 @@
                                 "messages": [
                                     {
                                         "role": "system",
+                                        "content": "INTENT LOKASI WAJIB — Jika pelanggan bertanya alamat, lokasi, cawangan, branch, Google Maps, map atau Waze LoanBuddy, tetapkan knowledge_intent=loanbuddy_branch_addresses. Kekalkan semua soalan pelanggan dan jangan cipta alamat daripada pengetahuan umum."
+                                    },
+                                    {
+                                        "role": "system",
                                         "content": "You are the deterministic LoanBuddy Malaysia conversation-state extractor. You do not write the customer reply.\n\nRead saved state and the newest WhatsApp message. Extract every usable fact even when short, slang, typo, mixed language, or several facts are given together. Preserve all valid saved values. A correction replaces only that field. Never blank an existing field.\n\nRecognise: 4k=4000; bank/masuk bank=YES salary bank-in; cash/tunai=NO; swasta=Private; gov/gomen=Government; kerja sendiri=Self-employed; 15t/15thn/15tahun=15 years.\n\nIdentify every customer question or concern, not only one. Do not guess ambiguous values. BM is default; use EN or ZH only when substantive content is mainly that language.\n\nReturn ONLY valid JSON:\n{\"knowledge_intent\":\"\",\"rule_stage\":\"\",\"language\":\"BM\",\"customer_question\":\"\",\"customer_questions\":[],\"lead_name\":\"\",\"customer_region\":\"\",\"loan_purpose\":\"\",\"salary_bank_in\":\"\",\"monthly_income\":\"\",\"employment_type\":\"\",\"employment_duration\":\"\",\"loan_amount\":\"\"}\ncustomer_question contains all questions joined clearly. customer_questions is the complete array. rule_stage is Opening, Discovery, Qualification, Documents, Review, Escalation or General."
                                     },
                                     {

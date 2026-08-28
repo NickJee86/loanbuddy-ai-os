@@ -53,3 +53,12 @@ test("deployed branch knowledge preserves every approved address and navigation 
     assert.match(branch.waze, /^https:\/\/www\.waze\.com\/ul\?q=.*&navigate=yes$/);
   }
 });
+
+
+test("S00 extractor routes every address and navigation question to branch knowledge", () => {
+  const blueprint = fs.readFileSync(blueprintPath, "utf8");
+
+  assert.match(blueprint, /INTENT LOKASI WAJIB/);
+  assert.match(blueprint, /alamat, lokasi, cawangan, branch, Google Maps, map atau Waze/);
+  assert.match(blueprint, /knowledge_intent=loanbuddy_branch_addresses/);
+});
