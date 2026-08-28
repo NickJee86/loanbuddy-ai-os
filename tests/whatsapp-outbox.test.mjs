@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMediaPayload, matchesPreLeadConversation, shouldCancelAutomatedOutboxRow, validateManualWhatsApp, validateWhatsAppAttachment } from "../app/whatsapp-outbox.mjs";
+import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMediaPayload, findMatchingConversationRow, matchesPreLeadConversation, shouldCancelAutomatedOutboxRow, validateManualWhatsApp, validateWhatsAppAttachment } from "../app/whatsapp-outbox.mjs";
 
 test("normalizes Malaysian mobile and validates content", () => {
   assert.deepEqual(validateManualWhatsApp({ leadId: "L1", phone: "016-896 8888", message: " Hi " }), { ok: true, leadId: "L1", phone: "60168968888", message: "Hi" });
@@ -67,4 +67,13 @@ test("manual takeover preserves staff messages and other customers", () => {
   assert.equal(shouldCancelAutomatedOutboxRow({
     "Lead ID": "L2", "Phone Number": "60120000000", "Send Status": "Pending", "Message Type": "AI_REPLY", Source: "S00",
   }, { leadId: "L1", phone: "60168968888" }), false);
+});
+
+test("handoff state prefers the exact lead and otherwise the latest row for the phone", () => {
+  const rows = [
+    { rowNumber: 2, record: { "Lead ID": "OLD", "Phone Number": "60168968888", "AI Status": "ACTIVE" } },
+    { rowNumber: 3, record: { "Lead ID": "NEW", "Phone Number": "60168968888", "AI Status": "PAUSED_MANUAL" } },
+  ];
+  assert.equal(findMatchingConversationRow(rows, { leadId: "NEW", phone: "60168968888" }).rowNumber, 3);
+  assert.equal(findMatchingConversationRow(rows, { leadId: "UNKNOWN", phone: "0168968888" }).rowNumber, 3);
 });
