@@ -259,7 +259,7 @@ export function buildConversationSummaries(leads = [], sources = {}) {
       conversationLeads.push({
         id,
         name: value(row, ["Customer Name", "Full Name", "Name"]) || "WhatsApp User",
-        phone: value(row, ["Phone Number", "WhatsApp Number", "Customer Phone", "Phone"]),
+        phone: value(row, ["Phone Number", "WhatsApp Number", "Customer Phone", "Phone", "From"]),
         branch: "Not assigned",
         owner: "AI managed",
         stage: "New WhatsApp",
