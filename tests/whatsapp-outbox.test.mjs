@@ -45,6 +45,15 @@ test("pre-lead access rejects a temporary ID paired with another phone", () => {
   }), false);
 });
 
+test("pre-lead and manual CRM controls accept a valid international WhatsApp number", () => {
+  assert.equal(matchesPreLeadConversation({
+    leadId: "WA-US-1",
+    phone: "16315551181",
+    rows: [{ "Lead ID": "WA-US-1", From: "16315551181" }],
+  }), true);
+  assert.equal(validateManualWhatsApp({ leadId: "WA-US-1", phone: "16315551181", message: "Hello" }).ok, true);
+});
+
 test("manual takeover cancels pending automated messages for the same customer", () => {
   assert.equal(shouldCancelAutomatedOutboxRow({
     "Lead ID": "L1", "Phone Number": "60168968888", "Send Status": "Pending", "Message Type": "AI_DOCUMENT_REMINDER_1", Source: "S09",
