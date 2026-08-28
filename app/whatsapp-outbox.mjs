@@ -21,6 +21,14 @@ export function shouldCancelAutomatedOutboxRow(row = {}, identity = {}) {
   return Boolean(matchesCustomer && pending && !manual);
 }
 
+export function findMatchingConversationRow(rows = [], identity = {}) {
+  const leadId = String(identity.leadId || "").trim();
+  const phone = String(identity.phone || "").replace(/\D/g, "").replace(/^0/, "60");
+  const exactLead = rows.find((row) => String(row?.record?.["Lead ID"] || "").trim() === leadId);
+  if (exactLead) return exactLead;
+  return [...rows].reverse().find((row) => phone && String(row?.record?.["Phone Number"] || "").replace(/\D/g, "").replace(/^0/, "60") === phone);
+}
+
 export function matchesPreLeadConversation(input = {}) {
   const leadId = String(input.leadId || "").trim();
   const phoneKey = String(input.phone || "").replace(/\D/g, "").replace(/^0/, "60");

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sessionCookieName, verifySession } from "../../auth";
 import { appendAudit, readSheetValues, rowsToRecords, writableSheetContext, writeSheetValues } from "../../google-sheets-write";
-import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMediaPayload, matchesPreLeadConversation, OUTBOX_HEADERS, shouldCancelAutomatedOutboxRow, validateManualWhatsApp, validateWhatsAppAttachment } from "../../whatsapp-outbox.mjs";
+import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMediaPayload, findMatchingConversationRow, matchesPreLeadConversation, OUTBOX_HEADERS, shouldCancelAutomatedOutboxRow, validateManualWhatsApp, validateWhatsAppAttachment } from "../../whatsapp-outbox.mjs";
 import { detectSupportedDocumentMime } from "../../file-signature.mjs";
 
 export const runtime = "nodejs";
@@ -60,10 +60,7 @@ export async function POST(request: NextRequest) {
     };
     if (operation === "send" || operation === "send_media") {
       const stateValues = await readSheetValues(sheetId, token, "Conversation_State!A1:AZ");
-      const conversation = rowsToRecords(stateValues).find(({ record }) =>
-        String(record["Lead ID"] || "").trim() === leadId ||
-        String(record["Phone Number"] || "").replace(/\D/g, "") === requestedPhone.replace(/\D/g, "")
-      )?.record;
+      const conversation = findMatchingConversationRow(rowsToRecords(stateValues), { leadId, phone: requestedPhone })?.record;
       if (String(conversation?.["AI Status"] || "").trim() !== "PAUSED_MANUAL") {
         return NextResponse.json({ error: "Take over this conversation before sending a manual message." }, { status: 409 });
       }
@@ -110,7 +107,7 @@ export async function POST(request: NextRequest) {
     if (!originalHeaders.length) return NextResponse.json({ error: "Conversation state is not configured." }, { status: 503 });
     const headers = [...originalHeaders, ...["AI Status", "AI Paused By", "AI Paused At", "AI Resumed At", "Human Owner"].filter((header) => !originalHeaders.includes(header))];
     if (headers.length !== originalHeaders.length) await writeSheetValues(sheetId, token, `Conversation_State!A1:${columnName(headers.length - 1)}1`, [headers]);
-    const found = rowsToRecords([headers, ...stateValues.slice(1)]).find(({ record }) => String(record["Lead ID"] || "").trim() === leadId);
+    const found = findMatchingConversationRow(rowsToRecords([headers, ...stateValues.slice(1)]), { leadId, phone: body.phone || lead["Phone Number"] || "" });
     const now = new Date().toISOString();
     const record = found?.record || Object.fromEntries(headers.map((header) => [header, ""]));
     record["Lead ID"] = leadId; record["Phone Number"] ||= body.phone || lead["Phone Number"] || ""; record["Lead Name"] ||= body.leadName || lead["Lead Name"] || lead.Name || "";
