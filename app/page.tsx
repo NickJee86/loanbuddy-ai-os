@@ -1406,6 +1406,9 @@ function FollowUpWorkspace({
     const phone = pick(row, ["Phone Number"]);
     const key = `${leadId || phone}:${action}`;
     const payload: Record<string, string> = { action, leadId: leadId === "—" ? "" : leadId, phone: phone === "—" ? "" : phone };
+    if (action === "QUEUE_NOW" && !window.confirm("Mark this case ready for follow-up? No WhatsApp will be sent while the Follow-up Engine / S09 remains OFF.")) return;
+    if (action === "RESUME" && !window.confirm("Resume AI follow-up for this customer? Automated sending still depends on the master switch and S09.")) return;
+    if (action === "RETRY" && !window.confirm("Mark this failed follow-up ready to retry? No WhatsApp will be sent while the Follow-up Engine / S09 remains OFF.")) return;
     if (action === "RESCHEDULE") {
       const dueAt = window.prompt("New follow-up date and time (example: 2026-08-29T10:00:00+08:00)", "");
       if (!dueAt) return;
@@ -1415,15 +1418,20 @@ function FollowUpWorkspace({
       const outcome = window.prompt("Outcome: CONTACTED, LATER, NO_ANSWER, DECLINED, DOCUMENTS_RECEIVED or CLOSED", "CONTACTED");
       if (!outcome) return;
       payload.outcome = outcome;
-      payload.note = window.prompt("Optional follow-up note", "") || "";
+      const note = window.prompt("Optional follow-up note", "");
+      if (note === null) return;
+      payload.note = note;
     }
     if (action === "ASSIGN") {
       const assignedTo = window.prompt("Assign to Staff / SA ID", pick(row, ["Assigned To", "Staff ID"]) === "—" ? "" : pick(row, ["Assigned To", "Staff ID"]));
       if (!assignedTo) return;
       payload.assignedTo = assignedTo;
     }
-    if (["PAUSE", "SKIP", "RETRY"].includes(action))
-      payload.note = window.prompt("Optional reason / note", "") || "";
+    if (["PAUSE", "SKIP", "RETRY"].includes(action)) {
+      const note = window.prompt("Optional reason / note", "");
+      if (note === null) return;
+      payload.note = note;
+    }
     setBusy(key); setMessage(""); setError(false);
     try {
       const response = await fetch("/api/follow-up-actions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
@@ -1457,7 +1465,7 @@ function FollowUpWorkspace({
             <td>{pick(row, ["Status"])}<small>{pick(row, ["Delivery Status", "Outcome"])}</small></td>
             <td>{pick(row, ["Assigned To", "Staff ID"])}</td>
             <td><div className="follow-row-actions">
-              <button disabled={Boolean(busy)} onClick={() => perform(row, "QUEUE_NOW")}>Queue now</button>
+              <button disabled={Boolean(busy)} onClick={() => perform(row, "QUEUE_NOW")}>Mark ready</button>
               <button disabled={Boolean(busy)} onClick={() => perform(row, aiPaused ? "RESUME" : "PAUSE")}>{aiPaused ? "Resume" : "Pause"}</button>
               <button disabled={Boolean(busy)} onClick={() => perform(row, "RESCHEDULE")}>Reschedule</button>
               <button disabled={Boolean(busy)} onClick={() => perform(row, "SKIP")}>Skip</button>

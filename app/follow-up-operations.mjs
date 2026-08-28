@@ -9,6 +9,15 @@ export const FOLLOW_UP_ACTIONS = Object.freeze([
   "RETRY",
 ]);
 
+export const FOLLOW_UP_OUTCOMES = Object.freeze([
+  "CONTACTED",
+  "LATER",
+  "NO_ANSWER",
+  "DECLINED",
+  "DOCUMENTS_RECEIVED",
+  "CLOSED",
+]);
+
 const clean = (value) => String(value || "").trim();
 const upper = (value) => clean(value).toUpperCase().replace(/[\s-]+/g, "_");
 
@@ -34,8 +43,9 @@ export function validateFollowUpAction(input = {}, now = Date.now()) {
     if (!Number.isFinite(due) || due <= now)
       errors.push("The rescheduled time must be a valid future date and time.");
   }
-  if (action === "OUTCOME" && !clean(input.outcome))
-    errors.push("A follow-up outcome is required.");
+  const outcome = upper(input.outcome);
+  if (action === "OUTCOME" && !FOLLOW_UP_OUTCOMES.includes(outcome))
+    errors.push(`Outcome must be ${FOLLOW_UP_OUTCOMES.join(", ")}.`);
   if (action === "ASSIGN" && !clean(input.assignedTo))
     errors.push("An assignee is required.");
   return {
@@ -46,7 +56,7 @@ export function validateFollowUpAction(input = {}, now = Date.now()) {
       leadId,
       phone,
       dueAt: clean(input.dueAt),
-      outcome: clean(input.outcome),
+      outcome,
       assignedTo: clean(input.assignedTo),
       note: clean(input.note).slice(0, 500),
     },
