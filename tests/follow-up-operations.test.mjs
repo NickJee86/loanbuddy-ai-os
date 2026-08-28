@@ -14,6 +14,12 @@ test("queue now remains a queue action and does not claim delivery", () => {
   assert.equal(result["Delivery Status"], undefined);
 });
 
+test("pause uses the same manual takeover state as the WhatsApp console", () => {
+  const result = followUpPatch({ action: "PAUSE", leadId: "L1", phone: "6012", note: "staff takeover" });
+  assert.equal(result.Status, "PAUSED");
+  assert.equal(result["AI Status"], "PAUSED_MANUAL");
+});
+
 test("rejects outcomes outside the reporting whitelist", () => {
   const result = validateFollowUpAction({ action: "OUTCOME", leadId: "L1", outcome: "maybe later lah" });
   assert.equal(result.valid, false);
@@ -37,4 +43,12 @@ test("derives urgent and operational metrics", () => {
   assert.deepEqual(followUpMetrics(rows, Date.parse("2026-08-28T08:00:00.000Z")), {
     total: 3, dueNow: 1, paused: 1, failed: 1, finalStage: 0,
   });
+});
+
+test("counts both legacy and manual takeover pause states", () => {
+  const result = followUpMetrics([
+    { Status: "READY", "AI Status": "PAUSED_MANUAL" },
+    { Status: "PAUSED", "AI Status": "PAUSED" },
+  ]);
+  assert.equal(result.paused, 2);
 });
