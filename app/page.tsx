@@ -55,6 +55,7 @@ import {
 import { CONSENT_TEMPLATE } from "./consent-template.mjs";
 import WhatsAppConsole from "./whatsapp-console";
 import { DEFAULT_FOLLOW_UP_SETTINGS } from "./follow-up-control.mjs";
+import { followUpMetrics, followUpPriority } from "./follow-up-operations.mjs";
 
 type NavKey =
   | "New Application"
@@ -206,7 +207,6 @@ const navigationSections: Array<{
       { label: "Dashboard", title: "Home", icon: "▦" },
       { label: "Action Center", title: "Today", icon: "!" },
       { label: "Customers", title: "Customer Records", icon: "◎" },
-      { label: "Conversations", title: "WhatsApp Chat", icon: "◉" },
       { label: "Work Queue", title: "Work Queue", icon: "◇" },
       { label: "New Application", title: "New Application", icon: "+" },
     ],
@@ -618,7 +618,7 @@ function ActionCenter({
           <article>
             <span>WhatsApp Cloud API</span>
             <Chip tone="teal">AUTOMATION LIVE</Chip>
-            <small>S00 replies and CRM manual text/media sending are live</small>
+            <small>S00 replies are live; CRM manual sending remains locked</small>
           </article>
         </div>
       </section>
@@ -1336,6 +1336,100 @@ function RecordTable({
           </tbody>
         </table>
       </div>
+    </section>
+  );
+}
+
+function FollowUpWorkspace({
+  rows,
+  onOpenLead,
+  onChanged,
+}: {
+  rows: SheetRow[];
+  onOpenLead?: (leadId: string) => void;
+  onChanged?: () => void;
+}) {
+  const [scope, setScope] = useState("ALL");
+  const [renderNow] = useState(() => Date.now());
+  const [busy, setBusy] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState(false);
+  const metrics = followUpMetrics(rows, renderNow) as { total: number; dueNow: number; paused: number; failed: number; finalStage: number };
+  const filtered = rows.filter((row) => {
+    if (scope === "ALL") return true;
+    if (scope === "DUE") return followUpPriority(row, renderNow) === "URGENT";
+    if (scope === "PAUSED") return normalized(row.Status) === "paused" || normalized(row["AI Status"]) === "paused";
+    if (scope === "FAILED") return /failed|error|rejected|undeliver/i.test(`${row.Status} ${row["Delivery Status"]}`);
+    if (scope === "FINAL") return /final|reminder[_ ]?4/i.test(`${row["Reminder Stage"]} ${row["Last AI Message Type"]}`);
+    return true;
+  });
+  const perform = async (row: SheetRow, action: string) => {
+    const leadId = pick(row, ["Lead ID"]);
+    const phone = pick(row, ["Phone Number"]);
+    const key = `${leadId || phone}:${action}`;
+    const payload: Record<string, string> = { action, leadId: leadId === "—" ? "" : leadId, phone: phone === "—" ? "" : phone };
+    if (action === "RESCHEDULE") {
+      const dueAt = window.prompt("New follow-up date and time (example: 2026-08-29T10:00:00+08:00)", "");
+      if (!dueAt) return;
+      payload.dueAt = dueAt;
+    }
+    if (action === "OUTCOME") {
+      const outcome = window.prompt("Outcome: CONTACTED, LATER, NO_ANSWER, DECLINED, DOCUMENTS_RECEIVED or CLOSED", "CONTACTED");
+      if (!outcome) return;
+      payload.outcome = outcome;
+      payload.note = window.prompt("Optional follow-up note", "") || "";
+    }
+    if (action === "ASSIGN") {
+      const assignedTo = window.prompt("Assign to Staff / SA ID", pick(row, ["Assigned To", "Staff ID"]) === "—" ? "" : pick(row, ["Assigned To", "Staff ID"]));
+      if (!assignedTo) return;
+      payload.assignedTo = assignedTo;
+    }
+    if (["PAUSE", "SKIP", "RETRY"].includes(action))
+      payload.note = window.prompt("Optional reason / note", "") || "";
+    setBusy(key); setMessage(""); setError(false);
+    try {
+      const response = await fetch("/api/follow-up-actions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || "Unable to save follow-up action.");
+      setMessage(`${action.replaceAll("_", " ")} recorded. S09 remains controlled by the master switch.`);
+      onChanged?.();
+    } catch (caught) {
+      setError(true); setMessage(caught instanceof Error ? caught.message : "Unable to save follow-up action.");
+    } finally { setBusy(""); }
+  };
+  return (
+    <section className="panel table-panel follow-up-workspace">
+      <div className="follow-up-ops-summary">
+        <button className={scope === "ALL" ? "active" : ""} onClick={() => setScope("ALL")}><strong>{metrics.total}</strong><span>Open</span></button>
+        <button className={scope === "DUE" ? "active" : ""} onClick={() => setScope("DUE")}><strong>{metrics.dueNow}</strong><span>Due / overdue</span></button>
+        <button className={scope === "PAUSED" ? "active" : ""} onClick={() => setScope("PAUSED")}><strong>{metrics.paused}</strong><span>Paused</span></button>
+        <button className={scope === "FAILED" ? "active" : ""} onClick={() => setScope("FAILED")}><strong>{metrics.failed}</strong><span>Failed</span></button>
+        <button className={scope === "FINAL" ? "active" : ""} onClick={() => setScope("FINAL")}><strong>{metrics.finalStage}</strong><span>Final stage</span></button>
+      </div>
+      <div className="table-toolbar"><div><h2>Follow-up Actions</h2><p>{filtered.length} operational cases · actions are audited</p></div></div>
+      <div className="table-scroll"><table><thead><tr><th>Priority</th><th>Customer</th><th>Type / stage</th><th>Last / next</th><th>Status</th><th>Assigned</th><th>Actions</th></tr></thead>
+        <tbody>{filtered.length ? filtered.map((row, index) => {
+          const leadId = pick(row, ["Lead ID"]); const phone = pick(row, ["Phone Number"]); const aiPaused = normalized(row["AI Status"]) === "paused" || normalized(row.Status) === "paused"; const failed = /failed|error|rejected|undeliver/i.test(`${row.Status} ${row["Delivery Status"]}`);
+          return <tr key={`${leadId}-${phone}-${index}`}>
+            <td><span className={`follow-priority ${followUpPriority(row, renderNow).toLowerCase()}`}>{followUpPriority(row, renderNow)}</span></td>
+            <td><strong>{pick(row, ["Lead Name", "Lead ID"])}</strong><small>{phone}</small></td>
+            <td>{pick(row, ["Follow Up Type", "Reason"])}<small>{pick(row, ["Reminder Stage", "Last AI Message Type"])}</small></td>
+            <td>{pick(row, ["Last Reminder At", "Last AI Message At"])}<small>Next: {pick(row, ["Due At", "Scheduled At", "Follow Up Date"])}</small></td>
+            <td>{pick(row, ["Status"])}<small>{pick(row, ["Delivery Status", "Outcome"])}</small></td>
+            <td>{pick(row, ["Assigned To", "Staff ID"])}</td>
+            <td><div className="follow-row-actions">
+              <button disabled={Boolean(busy)} onClick={() => perform(row, "QUEUE_NOW")}>Queue now</button>
+              <button disabled={Boolean(busy)} onClick={() => perform(row, aiPaused ? "RESUME" : "PAUSE")}>{aiPaused ? "Resume" : "Pause"}</button>
+              <button disabled={Boolean(busy)} onClick={() => perform(row, "RESCHEDULE")}>Reschedule</button>
+              <button disabled={Boolean(busy)} onClick={() => perform(row, "SKIP")}>Skip</button>
+              <button disabled={Boolean(busy)} onClick={() => perform(row, "OUTCOME")}>Outcome</button>
+              <button disabled={Boolean(busy)} onClick={() => perform(row, "ASSIGN")}>Assign</button>
+              {failed && <button disabled={Boolean(busy)} onClick={() => perform(row, "RETRY")}>Retry</button>}
+              {leadId !== "—" && <button className="secondary" onClick={() => onOpenLead?.(leadId)}>Open</button>}
+            </div></td>
+          </tr>;
+        }) : <tr><td colSpan={7}><strong>No matching follow-up cases</strong></td></tr>}</tbody></table></div>
+      {message && <div className={`form-message follow-up-op-message${error ? " error" : ""}`}>{message}</div>}
     </section>
   );
 }
@@ -2768,11 +2862,15 @@ function WorkQueue({
   data,
   onLead,
   connected,
+  user,
+  onChanged,
 }: {
   leads: Lead[];
   data: Record<string, SheetRow[]>;
   onLead: (lead: Lead) => void;
   connected: boolean;
+  user?: CrmUser;
+  onChanged?: () => void;
 }) {
   const [queue, setQueue] = useState<NavKey>("Follow-up");
   const [dataScope, setDataScope] = useState<"PRODUCTION" | "ALL">(
@@ -2819,6 +2917,8 @@ function WorkQueue({
           onLead={onLead}
           connected={connected}
           data={data}
+          user={user}
+          onChanged={onChanged}
         />
       )}
     </div>
@@ -3203,7 +3303,7 @@ function ModulePage({
   }
 
   if (active === "Follow-up") {
-        const queueRows = rows.filter((row) => {
+    const queueRows = rows.filter((row) => {
       const status = normalized(row.Status);
       return !["resolved", "closed", "completed", "cancelled"].includes(
         status,
@@ -3216,17 +3316,24 @@ function ModulePage({
     const derivedRows = applications
       .filter((item) => ["QUALIFICATION", "DOCUMENTS"].includes(item.phase))
       .filter((item) => !queuedLeadIds.has(item.lead.id))
-      .map((item) => ({
+      .map((item) => {
+        const inactiveAt = pick(item.state || {}, ["Last Customer Message At", "Last Reply At", "Updated At", "Created At"]);
+        const parsed = Date.parse(inactiveAt);
+        const dueAt = Number.isFinite(parsed)
+          ? new Date(parsed + DEFAULT_FOLLOW_UP_SETTINGS.firstMinutes * 60_000).toISOString()
+          : "Not scheduled";
+        return ({
         "Lead ID": item.lead.id,
         "Lead Name": item.lead.name,
         "Phone Number": item.lead.phone,
         "Follow Up Type": item.phase === "DOCUMENTS" ? "Missing documents" : "Incomplete information",
         "Next Action": pick(item.state || {}, ["Next Action"]) || item.blocker,
-        "Due At": "Awaiting S09 schedule",
+        "Due At": dueAt,
         Status: item.phase,
         "Assigned To": item.lead.owner || (item.lead.processingRoute === "AI_DIRECT" ? "AI Direct" : "Unassigned"),
         Source: "Application Register",
-      }));
+      });
+      });
     const followRows = [...queueRows, ...derivedRows].map((row) => {
       const leadState = latestRow(data.Conversation_State || [], pick(row, ["Lead ID"])) || {};
       return {
@@ -3258,11 +3365,10 @@ function ModulePage({
             { label: "Document pending", value: documentPending },
           ]}
         />
-        <RecordTable
-          title={config.title}
+        <FollowUpWorkspace
           rows={followRows}
-          columns={config.columns}
           onOpenLead={openRow}
+          onChanged={onChanged}
         />
       </div>
     );
@@ -5507,13 +5613,12 @@ export default function Home() {
     () =>
       buildActionCenter({
         leads: dashboardLeads.map((lead) => lead.raw),
-        conversationLeads: workQueueCustomers,
         data: crm.data || {},
         role: crm.user?.role || "staff",
         connected: crm.connected,
         stale: Boolean(crm.stale),
       }) as ActionCenterResult,
-    [crm.connected, crm.data, crm.stale, crm.user?.role, dashboardLeads, workQueueCustomers],
+    [crm.connected, crm.data, crm.stale, crm.user?.role, dashboardLeads],
   );
   const existingDocuments = useMemo(() => {
     const result: Record<string, string> = {};
@@ -5651,6 +5756,8 @@ export default function Home() {
               data={datedData}
               onLead={openCustomer}
               connected={crm.connected}
+              user={crm.user}
+              onChanged={loadCrm}
             />
           ) : active === "Post-Approval" ? (
             <PostApprovalWorkspace
