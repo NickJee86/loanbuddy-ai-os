@@ -55,7 +55,7 @@ import {
 import { CONSENT_TEMPLATE } from "./consent-template.mjs";
 import WhatsAppConsole from "./whatsapp-console";
 import { DEFAULT_FOLLOW_UP_SETTINGS, readFollowUpSettings } from "./follow-up-control.mjs";
-import { followUpMetrics, followUpPriority } from "./follow-up-operations.mjs";
+import { canPerformFollowUpAction, followUpMetrics, followUpPriority } from "./follow-up-operations.mjs";
 
 type NavKey =
   | "New Application"
@@ -1362,10 +1362,12 @@ function FollowUpWorkspace({
   rows,
   onOpenLead,
   onChanged,
+  user,
 }: {
   rows: SheetRow[];
   onOpenLead?: (leadId: string) => void;
   onChanged?: () => void;
+  user?: CrmUser;
 }) {
   const [scope, setScope] = useState("ALL");
   const [renderNow] = useState(() => Date.now());
@@ -1465,13 +1467,13 @@ function FollowUpWorkspace({
             <td>{pick(row, ["Status"])}<small>{pick(row, ["Delivery Status", "Outcome"])}</small></td>
             <td>{pick(row, ["Assigned To", "Staff ID"])}</td>
             <td><div className="follow-row-actions">
-              <button disabled={Boolean(busy)} onClick={() => perform(row, "QUEUE_NOW")}>Mark ready</button>
-              <button disabled={Boolean(busy)} onClick={() => perform(row, aiPaused ? "RESUME" : "PAUSE")}>{aiPaused ? "Resume" : "Pause"}</button>
-              <button disabled={Boolean(busy)} onClick={() => perform(row, "RESCHEDULE")}>Reschedule</button>
-              <button disabled={Boolean(busy)} onClick={() => perform(row, "SKIP")}>Skip</button>
-              <button disabled={Boolean(busy)} onClick={() => perform(row, "OUTCOME")}>Outcome</button>
-              <button disabled={Boolean(busy)} onClick={() => perform(row, "ASSIGN")}>Assign</button>
-              {failed && <button disabled={Boolean(busy)} onClick={() => perform(row, "RETRY")}>Retry</button>}
+              {canPerformFollowUpAction(user?.role, "QUEUE_NOW") && <button disabled={Boolean(busy)} onClick={() => perform(row, "QUEUE_NOW")}>Mark ready</button>}
+              {canPerformFollowUpAction(user?.role, aiPaused ? "RESUME" : "PAUSE") && <button disabled={Boolean(busy)} onClick={() => perform(row, aiPaused ? "RESUME" : "PAUSE")}>{aiPaused ? "Resume" : "Pause"}</button>}
+              {canPerformFollowUpAction(user?.role, "RESCHEDULE") && <button disabled={Boolean(busy)} onClick={() => perform(row, "RESCHEDULE")}>Reschedule</button>}
+              {canPerformFollowUpAction(user?.role, "SKIP") && <button disabled={Boolean(busy)} onClick={() => perform(row, "SKIP")}>Skip</button>}
+              {canPerformFollowUpAction(user?.role, "OUTCOME") && <button disabled={Boolean(busy)} onClick={() => perform(row, "OUTCOME")}>Outcome</button>}
+              {canPerformFollowUpAction(user?.role, "ASSIGN") && <button disabled={Boolean(busy)} onClick={() => perform(row, "ASSIGN")}>Assign</button>}
+              {failed && canPerformFollowUpAction(user?.role, "RETRY") && <button disabled={Boolean(busy)} onClick={() => perform(row, "RETRY")}>Retry</button>}
               {leadId !== "—" && <button className="secondary" onClick={() => onOpenLead?.(leadId)}>Open</button>}
             </div></td>
           </tr>;
@@ -3421,6 +3423,7 @@ function ModulePage({
           rows={followRows}
           onOpenLead={openRow}
           onChanged={onChanged}
+          user={user}
         />
       </div>
     );
