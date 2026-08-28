@@ -89,14 +89,28 @@ export async function POST(request: NextRequest) {
       await writeSheetValues(sheetId, token, "Follow_Up_Queue!A:AZ", [headers.map((header) => record[header] || "")], true);
 
     if (["PAUSE", "RESUME"].includes(action.action)) {
-      const stateHeaders = stateValues[0] || [];
-      const stateRows = rowsToRecords(stateValues) as RecordRow[];
+      const originalStateHeaders = stateValues[0] || [];
+      const stateHeaders = [...originalStateHeaders];
+      for (const header of ["Lead ID", "Phone Number", "Lead Name", "AI Status", "AI Paused By", "AI Paused At", "Last Updated"])
+        if (!stateHeaders.includes(header)) stateHeaders.push(header);
+      if (stateHeaders.length !== originalStateHeaders.length)
+        await writeSheetValues(sheetId, token, `Conversation_State!A1:${columnName(stateHeaders.length - 1)}1`, [stateHeaders]);
+      const stateRows = rowsToRecords([stateHeaders, ...stateValues.slice(1)]) as RecordRow[];
       const state = [...stateRows].reverse().find(({ record }) => sameCustomer(record, action.leadId, action.phone));
-      const aiColumn = stateHeaders.indexOf("AI Status");
-      if (state && aiColumn >= 0) {
-        const column = columnName(aiColumn);
-        await writeSheetValues(sheetId, token, `Conversation_State!${column}${state.rowNumber}`, [[action.action === "PAUSE" ? "PAUSED" : "ACTIVE"]]);
-      }
+      const lead = leadRows.find((row) => sameCustomer(row, action.leadId, action.phone));
+      const stateRecord: Record<string, string> = { ...(state?.record || {}) };
+      stateRecord["Lead ID"] ||= action.leadId;
+      stateRecord["Phone Number"] ||= action.phone || lead?.["Phone Number"] || "";
+      stateRecord["Lead Name"] ||= lead?.["Lead Name"] || lead?.Name || "";
+      stateRecord["AI Status"] = action.action === "PAUSE" ? "PAUSED_MANUAL" : "ACTIVE";
+      stateRecord["AI Paused By"] = action.action === "PAUSE" ? user.username : "";
+      stateRecord["AI Paused At"] = action.action === "PAUSE" ? now : "";
+      stateRecord["Last Updated"] = now;
+      const stateValuesToWrite = [stateHeaders.map((header) => stateRecord[header] || "")];
+      if (state)
+        await writeSheetValues(sheetId, token, `Conversation_State!A${state.rowNumber}:${columnName(stateHeaders.length - 1)}${state.rowNumber}`, stateValuesToWrite);
+      else
+        await writeSheetValues(sheetId, token, `Conversation_State!A:${columnName(stateHeaders.length - 1)}`, stateValuesToWrite, true);
     }
     await appendAudit(sheetId, token, `FOLLOW_UP_${action.action}`, user.username, action.leadId, JSON.stringify({ phone: action.phone, dueAt: action.dueAt, outcome: action.outcome, assignedTo: action.assignedTo, note: action.note }));
     return NextResponse.json({ ok: true, record });
