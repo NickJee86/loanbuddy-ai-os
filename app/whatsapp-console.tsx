@@ -2,16 +2,38 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { buildConversationTimeline } from "./customer-360.mjs";
+
+function normalizedIdentity(input: unknown) {
+  const raw = String(input || "").trim();
+  const digits = raw.replace(/\D/g, "");
+  return digits.length >= 8 ? digits : raw.toLowerCase();
+}
+
+function conversationStateFor(selected: Lead | undefined, rows: Row[]) {
+  if (!selected) return {};
+  const selectedIds = new Set([selected.id, selected.phone].map(normalizedIdentity).filter(Boolean));
+  return rows.find((row) =>
+    ["Lead ID", "Phone Number", "WhatsApp Number", "Customer Phone", "Phone", "From"]
+      .map((key) => normalizedIdentity(row[key]))
+      .some((identity) => identity && selectedIds.has(identity))
+  ) || {};
+}
 type Row = Record<string, string>;
 type Lead = { id: string; name: string; phone: string; branch: string; owner: string };
 
 export default function WhatsAppConsole({ leads, data, user, onChanged }: { leads: Lead[]; data: Record<string, Row[]>; user?: { role: string }; onChanged: () => void }) {
-  const [leadId, setLeadId] = useState(leads[0]?.id || ""); const [message, setMessage] = useState(""); const [attachment, setAttachment] = useState<File | null>(null); const [previewUrl, setPreviewUrl] = useState(""); const [busy, setBusy] = useState(""); const [notice, setNotice] = useState(""); const fileInput = useRef<HTMLInputElement>(null); const previewRef = useRef("");
+  const [leadId, setLeadId] = useState(leads[0]?.id || ""); const [message, setMessage] = useState(""); const [attachment, setAttachment] = useState<File | null>(null); const [previewUrl, setPreviewUrl] = useState(""); const [busy, setBusy] = useState(""); const [notice, setNotice] = useState(""); const [manualOverride, setManualOverride] = useState<boolean | null>(null); const fileInput = useRef<HTMLInputElement>(null); const previewRef = useRef("");
   const selected = leads.find((lead) => lead.id === leadId) || leads[0];
   const sources = useMemo(() => ({ customerInbox: data.Customer_Inbox || [], replyLog: data.Customer_Reply_Log || [], messageOutbox: data.Message_Outbox || [], documents: data.Document_Received_Log || [], activities: data.Lead_Activities || [], followUps: data.Follow_Up_Queue || [], creditDecisions: data.Credit_Decision_Log || [], verifications: data.Document_Verification_Log || [], assessments: data.Credit_Assessment || [], lmsQueue: data.LMS_Submission_Queue || [], lmsResults: data.LMS_Credit_Result || [] }), [data]);
   const timeline = selected ? buildConversationTimeline(selected.id, sources) : [];
-  const state = (data.Conversation_State || []).find((row) => row["Lead ID"] === selected?.id) || {};
-  const paused = state["AI Status"] === "PAUSED_MANUAL"; const canSend = user?.role !== "readonly";
+  const state = conversationStateFor(selected, data.Conversation_State || []);
+  const persistedPaused = state["AI Status"] === "PAUSED_MANUAL";
+  const paused = manualOverride ?? persistedPaused; const canSend = user?.role !== "readonly";
+
+  useEffect(() => { setManualOverride(null); }, [selected?.id]);
+  useEffect(() => {
+    if (manualOverride !== null && manualOverride === persistedPaused) setManualOverride(null);
+  }, [manualOverride, persistedPaused]);
 
   useEffect(() => () => { if (previewRef.current) URL.revokeObjectURL(previewRef.current); }, []);
 
@@ -41,7 +63,12 @@ export default function WhatsAppConsole({ leads, data, user, onChanged }: { lead
       } else response = await fetch("/api/whatsapp", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ operation, leadId: selected.id, leadName: selected.name, phone: selected.phone, branchId: selected.branch, salesId: selected.owner, message, idempotencyKey: crypto.randomUUID() }) });
       const result = await response.json(); if (!response.ok) throw new Error(result.error || "Operation failed.");
       if (operation === "send") { const sentMedia = Boolean(attachment); setMessage(""); clearAttachment(); setNotice(sentMedia ? "Media accepted by WhatsApp." : "Message queued for WhatsApp delivery."); }
-      else setNotice(operation === "takeover" ? "AI paused. You now control this conversation." : "AI conversation resumed."); onChanged();
+      else {
+        const nextPaused = operation === "takeover";
+        setManualOverride(nextPaused);
+        setNotice(nextPaused ? "AI paused. You now control this conversation." : "AI conversation resumed.");
+      }
+      await Promise.resolve(onChanged());
     } catch (error) { setNotice(error instanceof Error ? error.message : "Operation failed."); } finally { setBusy(""); }
   }
 
