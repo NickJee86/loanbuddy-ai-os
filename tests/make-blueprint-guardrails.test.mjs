@@ -10,6 +10,10 @@ const policeHotfixPath = new URL(
   "../make/runtime-hotfixes/2026-08-26-polis-eligibility.json",
   import.meta.url,
 );
+const branchAddressHotfixPath = new URL(
+  "../make/runtime-hotfixes/2026-08-28-branch-address-knowledge.json",
+  import.meta.url,
+);
 
 test("S00 production prompt rejects police applicants without requesting documents", () => {
   const blueprint = fs.readFileSync(blueprintPath, "utf8");
@@ -31,4 +35,21 @@ test("deployed police runtime hotfix uses the exact intent and fail-closed workf
   assert.equal(hotfix.changes.reply_guardrail.request_documents, false);
   assert.equal(hotfix.changes.reply_guardrail.continue_qualification, false);
   assert.equal(hotfix.changes.reply_guardrail.qualification_status, "NOT_ELIGIBLE");
+});
+
+
+test("deployed branch knowledge preserves every approved address and navigation link", () => {
+  const hotfix = JSON.parse(fs.readFileSync(branchAddressHotfixPath, "utf8"));
+
+  assert.equal(hotfix.status, "DEPLOYED");
+  assert.equal(hotfix.knowledge_intent, "loanbuddy_branch_addresses");
+  assert.equal(hotfix.customer_facing, true);
+  assert.deepEqual(hotfix.branches.map((branch) => branch.branch_id), ["BR001", "BR002", "BR003"]);
+  assert.match(hotfix.branches[0].address, /Jalan Medan Tuanku 1/);
+  assert.match(hotfix.branches[1].address, /Bintulu Sentral/);
+  assert.match(hotfix.branches[2].address, /Bandar Riyal/);
+  for (const branch of hotfix.branches) {
+    assert.match(branch.google_maps, /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/);
+    assert.match(branch.waze, /^https:\/\/www\.waze\.com\/ul\?q=.*&navigate=yes$/);
+  }
 });
