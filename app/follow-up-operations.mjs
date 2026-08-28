@@ -18,6 +18,15 @@ export const FOLLOW_UP_OUTCOMES = Object.freeze([
   "CLOSED",
 ]);
 
+export function canPerformFollowUpAction(roleInput, actionInput) {
+  const role = clean(roleInput).toLowerCase();
+  const action = upper(actionInput);
+  if (!FOLLOW_UP_ACTIONS.includes(action)) return false;
+  if (action === "ASSIGN")
+    return ["admin", "regional_manager", "manager"].includes(role);
+  return ["admin", "regional_manager", "manager", "staff"].includes(role);
+}
+
 const clean = (value) => String(value || "").trim();
 const upper = (value) => clean(value).toUpperCase().replace(/[\s-]+/g, "_");
 

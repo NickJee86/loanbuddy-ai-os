@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sessionCookieName, verifySession } from "../../auth";
 import { filterCrmDataForUser } from "../../access-control.mjs";
-import { followUpPatch, validateFollowUpAction } from "../../follow-up-operations.mjs";
+import { canPerformFollowUpAction, followUpPatch, validateFollowUpAction } from "../../follow-up-operations.mjs";
+import { validReassignmentTarget } from "../../input-validation.mjs";
 import {
   appendAudit,
   readSheetValues,
@@ -62,17 +63,33 @@ export async function POST(request: NextRequest) {
     if (!validation.valid)
       return NextResponse.json({ error: validation.errors.join(" ") }, { status: 400 });
     const action = validation.value;
+    if (!canPerformFollowUpAction(user.role, action.action))
+      return NextResponse.json({ error: "You do not have permission for this follow-up action." }, { status: 403 });
     const { sheetId, token } = await writableSheetContext();
-    const [leadValues, queueValues, stateValues] = await Promise.all([
+    const [leadValues, queueValues, stateValues, userValues] = await Promise.all([
       readSheetValues(sheetId, token, "Leads!A1:CZ"),
       readSheetValues(sheetId, token, "Follow_Up_Queue!A1:AZ"),
       readSheetValues(sheetId, token, "Conversation_State!A1:CZ"),
+      action.action === "ASSIGN" ? readSheetValues(sheetId, token, "CRM_Users!A1:I") : Promise.resolve([]),
     ]);
     const leadRows = rowsToRecords(leadValues).map((item) => item.record);
     const visible = filterCrmDataForUser(user, { Leads: leadRows }).data.Leads || [];
     const management = ["admin", "regional_manager"].includes(user.role);
     if (!management && !visible.some((row: Record<string, string>) => sameCustomer(row, action.leadId, action.phone)))
       return NextResponse.json({ error: "This customer is outside your assigned access scope." }, { status: 403 });
+    const lead = leadRows.find((row) => sameCustomer(row, action.leadId, action.phone));
+    if (action.action === "ASSIGN") {
+      if (!lead?.["Branch ID"])
+        return NextResponse.json({ error: "Create the customer Lead and branch before assigning follow-up ownership." }, { status: 409 });
+      const target = validReassignmentTarget({
+        salesId: action.assignedTo,
+        branchId: lead["Branch ID"],
+        users: rowsToRecords(userValues).map((item) => item.record),
+      });
+      if (!target)
+        return NextResponse.json({ error: "Assignment requires an active Staff account in the same branch." }, { status: 409 });
+      action.assignedTo = String(target["Sales ID"] || "").trim().toUpperCase();
+    }
 
     const headers = await ensureHeaders(sheetId, token, queueValues);
     const queueRows = rowsToRecords(queueValues) as RecordRow[];
@@ -97,7 +114,6 @@ export async function POST(request: NextRequest) {
         await writeSheetValues(sheetId, token, `Conversation_State!A1:${columnName(stateHeaders.length - 1)}1`, [stateHeaders]);
       const stateRows = rowsToRecords([stateHeaders, ...stateValues.slice(1)]) as RecordRow[];
       const state = [...stateRows].reverse().find(({ record }) => sameCustomer(record, action.leadId, action.phone));
-      const lead = leadRows.find((row) => sameCustomer(row, action.leadId, action.phone));
       const stateRecord: Record<string, string> = { ...(state?.record || {}) };
       stateRecord["Lead ID"] ||= action.leadId;
       stateRecord["Phone Number"] ||= action.phone || lead?.["Phone Number"] || "";
