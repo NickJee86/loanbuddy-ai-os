@@ -1376,7 +1376,7 @@ function FollowUpWorkspace({
   const filtered = rows.filter((row) => {
     if (scope === "ALL") return true;
     if (scope === "DUE") return followUpPriority(row, renderNow) === "URGENT";
-    if (scope === "PAUSED") return normalized(row.Status) === "paused" || normalized(row["AI Status"]) === "paused";
+    if (scope === "PAUSED") return normalized(row.Status) === "paused" || normalized(row["AI Status"]).startsWith("paused");
     if (scope === "FAILED") return /failed|error|rejected|undeliver/i.test(`${row.Status} ${row["Delivery Status"]}`);
     if (scope === "FINAL") return /final|reminder[_ ]?4/i.test(`${row["Reminder Stage"]} ${row["Last AI Message Type"]}`);
     return true;
@@ -1455,7 +1455,7 @@ function FollowUpWorkspace({
       <div className="table-toolbar"><div><h2>Follow-up Actions</h2><p>{filtered.length} operational cases · actions are audited</p></div></div>
       <div className="table-scroll"><table><thead><tr><th>Priority</th><th>Customer</th><th>Type / stage</th><th>Next Action</th><th>Last / due</th><th>Status</th><th>Assigned</th><th>Actions</th></tr></thead>
         <tbody>{filtered.length ? filtered.map((row, index) => {
-          const leadId = pick(row, ["Lead ID"]); const phone = pick(row, ["Phone Number"]); const aiPaused = normalized(row["AI Status"]) === "paused" || normalized(row.Status) === "paused"; const failed = /failed|error|rejected|undeliver/i.test(`${row.Status} ${row["Delivery Status"]}`); const dueValue = pick(row, ["Due At", "Scheduled At", "Follow Up Date"]); const dueTime = Date.parse(dueValue);
+          const leadId = pick(row, ["Lead ID"]); const phone = pick(row, ["Phone Number"]); const aiPaused = normalized(row["AI Status"]).startsWith("paused") || normalized(row.Status) === "paused"; const failed = /failed|error|rejected|undeliver/i.test(`${row.Status} ${row["Delivery Status"]}`); const dueValue = pick(row, ["Due At", "Scheduled At", "Follow Up Date"]); const dueTime = Date.parse(dueValue);
           return <tr key={`${leadId}-${phone}-${index}`}>
             <td><span className={`follow-priority ${followUpPriority(row, renderNow).toLowerCase()}`}>{followUpPriority(row, renderNow)}</span></td>
             <td><strong>{pick(row, ["Lead Name", "Lead ID"])}</strong><small>{phone}</small></td>

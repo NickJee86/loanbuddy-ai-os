@@ -74,7 +74,7 @@ export function followUpPatch(actionInput, current = {}, now = new Date().toISOS
     "Updated At": now,
   };
   if (action === "QUEUE_NOW") Object.assign(patch, { Status: "READY", "Due At": now, "Next Action": "Send follow-up when S09 is enabled", Priority: "URGENT" });
-  if (action === "PAUSE") Object.assign(patch, { Status: "PAUSED", "AI Status": "PAUSED", "Next Action": "Paused by staff" });
+  if (action === "PAUSE") Object.assign(patch, { Status: "PAUSED", "AI Status": "PAUSED_MANUAL", "Next Action": "Paused by staff" });
   if (action === "RESUME") Object.assign(patch, { Status: "READY", "AI Status": "ACTIVE", "Next Action": "Resume follow-up sequence" });
   if (action === "SKIP") Object.assign(patch, { Status: "SKIPPED", "Next Action": "Wait for next configured reminder" });
   if (action === "RESCHEDULE") Object.assign(patch, { Status: "SCHEDULED", "Due At": actionInput.dueAt, "Scheduled At": actionInput.dueAt, "Next Action": "Scheduled follow-up" });
@@ -92,7 +92,7 @@ export function followUpMetrics(rows = [], now = Date.now()) {
       const due = Date.parse(clean(row["Due At"] || row["Scheduled At"]));
       return Number.isFinite(due) && due <= now;
     }).length,
-    paused: active.filter((row) => upper(row.Status) === "PAUSED" || upper(row["AI Status"]) === "PAUSED").length,
+    paused: active.filter((row) => upper(row.Status) === "PAUSED" || upper(row["AI Status"]).startsWith("PAUSED")).length,
     failed: active.filter((row) => /FAILED|ERROR|REJECTED|UNDELIVER/.test(upper(row["Delivery Status"] || row.Status))).length,
     finalStage: active.filter((row) => /FINAL|REMINDER_4/.test(upper(row["Reminder Stage"] || row["Last AI Message Type"]))).length,
   };
