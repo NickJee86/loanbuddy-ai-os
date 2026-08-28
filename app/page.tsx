@@ -618,7 +618,7 @@ function ActionCenter({
           <article>
             <span>WhatsApp Cloud API</span>
             <Chip tone="teal">AUTOMATION LIVE</Chip>
-            <small>S00 replies are live; CRM manual sending remains locked</small>
+            <small>S00 replies and CRM manual text/media sending are live</small>
           </article>
         </div>
       </section>
@@ -5507,12 +5507,13 @@ export default function Home() {
     () =>
       buildActionCenter({
         leads: dashboardLeads.map((lead) => lead.raw),
+        conversationLeads: workQueueCustomers,
         data: crm.data || {},
         role: crm.user?.role || "staff",
         connected: crm.connected,
         stale: Boolean(crm.stale),
       }) as ActionCenterResult,
-    [crm.connected, crm.data, crm.stale, crm.user?.role, dashboardLeads],
+    [crm.connected, crm.data, crm.stale, crm.user?.role, dashboardLeads, workQueueCustomers],
   );
   const existingDocuments = useMemo(() => {
     const result: Record<string, string> = {};

@@ -101,6 +101,7 @@ function hasDataQualityGap(row) {
  * to the currently selected branch/date lead set.
  * @param {{
  *   leads?: SheetRow[],
+ *   conversationLeads?: Array<Record<string, unknown>>,
  *   data?: Record<string, SheetRow[]>,
  *   role?: string,
  *   connected?: boolean,
@@ -109,14 +110,36 @@ function hasDataQualityGap(row) {
  */
 export function buildActionCenter({
   leads = [],
+  conversationLeads = [],
   data = {},
   role = "staff",
   connected = true,
   stale = false,
 }) {
   const management = ["admin", "regional_manager"].includes(role);
+  const operationalLeads = [...leads];
+  const knownLeadIds = new Set(
+    operationalLeads.map((row) => String(row?.["Lead ID"] || "").trim()).filter(Boolean),
+  );
+  for (const lead of conversationLeads || []) {
+    const leadId = String(lead?.id || lead?.["Lead ID"] || "").trim();
+    if (!leadId || knownLeadIds.has(leadId)) continue;
+    operationalLeads.push({
+      ...(lead?.raw || {}),
+      "Lead ID": leadId,
+      "Lead Name": String(lead?.name || "").trim(),
+      "Phone Number": String(lead?.phone || "").trim(),
+      "Current Stage": String(lead?.stage || "New WhatsApp").trim(),
+      "Document Status": String(lead?.documentStatus || "Not Started").trim(),
+      "Processing Route": String(lead?.processingRoute || "AI_DIRECT").trim(),
+      "Risk Level": String(lead?.risk || "Unknown").trim(),
+      Priority: String(lead?.priority || "").trim(),
+      "Synthetic Conversation": lead?.synthetic ? "YES" : "",
+    });
+    knownLeadIds.add(leadId);
+  }
   const leadIds = new Set(
-    leads.map((row) => String(row?.["Lead ID"] || "").trim()).filter(Boolean),
+    operationalLeads.map((row) => String(row?.["Lead ID"] || "").trim()).filter(Boolean),
   );
   const assessments = latestByLead(
     linkedRows(data.Credit_Assessment, leadIds),
@@ -141,13 +164,13 @@ export function buildActionCenter({
       .filter(Boolean),
   );
   const manualReviewIds = new Set(
-    [...leads, ...assessments]
+    [...operationalLeads, ...assessments]
       .filter(isManualReview)
       .map((row) => String(row?.["Lead ID"] || "").trim())
       .filter(Boolean),
   );
   const documentIds = new Set(
-    leads
+    operationalLeads
       .filter(needsDocuments)
       .map((row) => String(row?.["Lead ID"] || "").trim())
       .filter(Boolean),
@@ -180,13 +203,13 @@ export function buildActionCenter({
     (row) => normalized(row?.["Queue Status"] || row?.Status) === "QUEUED",
   );
   const qualityGapIds = new Set(
-    leads
+    operationalLeads
       .filter(hasDataQualityGap)
       .map((row) => String(row?.["Lead ID"] || "").trim())
       .filter(Boolean),
   );
   const pendingFulfilment = buildPostApprovalCases({
-    leads,
+    leads: operationalLeads,
     lmsResults: linkedRows(data.LMS_Credit_Result, leadIds),
     activities: linkedRows(data.Lead_Activities, leadIds),
   }).filter((item) => !item.disbursed);
@@ -195,6 +218,16 @@ export function buildActionCenter({
         (row) => normalized(row?.Status) === "ACTIVE",
       ).length
     : null;
+
+  const whatsappQualificationIds = new Set(
+    operationalLeads
+      .filter((row) =>
+        normalized(row?.["Synthetic Conversation"]) === "YES" ||
+        normalized(row?.["Current Stage"]) === "NEW_WHATSAPP"
+      )
+      .map((row) => String(row?.["Lead ID"] || "").trim())
+      .filter(Boolean),
+  );
 
   const alerts = [];
   if (!connected || stale)
@@ -227,6 +260,16 @@ export function buildActionCenter({
       description:
         "These are internal queue failures only; they are not completed external LMS submissions.",
       target: "LMS Status",
+    });
+  if (whatsappQualificationIds.size)
+    alerts.push({
+      id: "whatsapp-qualification",
+      severity: "warning",
+      count: whatsappQualificationIds.size,
+      title: "New WhatsApp customers need qualification",
+      description:
+        "These conversations do not yet have a complete customer profile, branch and owner. Complete qualification before treating them as formal applications.",
+      target: "Work Queue",
     });
   if (manualReviewIds.size)
     alerts.push({

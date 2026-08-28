@@ -168,3 +168,32 @@ test("disbursed and declined cases do not create post-approval actions", () => {
     false,
   );
 });
+
+
+test("pre-lead WhatsApp conversations appear as qualification work", () => {
+  const result = buildActionCenter({
+    leads: [],
+    conversationLeads: [
+      {
+        id: "60123456789",
+        name: "WhatsApp User",
+        phone: "60123456789",
+        stage: "New WhatsApp",
+        documentStatus: "Not Started",
+        processingRoute: "AI_DIRECT",
+        risk: "Unknown",
+        synthetic: true,
+        raw: {},
+      },
+    ],
+    role: "admin",
+    data: {
+      Product_Credit_Policy: [{ Status: "ACTIVE" }],
+      Conversation_State: [],
+    },
+  });
+  const alert = result.alerts.find((item) => item.id === "whatsapp-qualification");
+  assert.equal(alert?.count, 1);
+  assert.equal(alert?.target, "Work Queue");
+  assert.ok(result.totalActions >= 1);
+});
