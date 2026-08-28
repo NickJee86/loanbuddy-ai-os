@@ -24,7 +24,7 @@ export function shouldCancelAutomatedOutboxRow(row = {}, identity = {}) {
 export function matchesPreLeadConversation(input = {}) {
   const leadId = String(input.leadId || "").trim();
   const phoneKey = String(input.phone || "").replace(/\D/g, "").replace(/^0/, "60");
-  if (!leadId || !/^601\d{8,9}$/.test(phoneKey)) return false;
+  if (!leadId || !/^\d{8,15}$/.test(phoneKey)) return false;
   const identityPhone = leadId.replace(/\D/g, "").replace(/^0/, "60");
   if (identityPhone === phoneKey) return true;
   return (input.rows || []).some((row) => {
@@ -41,7 +41,7 @@ export function validateManualWhatsApp(input = {}) {
   const phone = String(input.phone || "").replace(/\D/g, "").replace(/^0/, "60");
   const message = String(input.message || "").trim();
   if (!leadId) return { ok: false, error: "Lead ID is required." };
-  if (!/^601\d{8,9}$/.test(phone)) return { ok: false, error: "Customer phone number is invalid." };
+  if (!/^\d{8,15}$/.test(phone)) return { ok: false, error: "Customer phone number is invalid." };
   if (!message) return { ok: false, error: "Message cannot be empty." };
   if (message.length > 3000) return { ok: false, error: "Message is too long (maximum 3,000 characters)." };
   return { ok: true, leadId, phone, message };
@@ -73,7 +73,7 @@ export function validateWhatsAppAttachment(input = {}) {
   const size = Number(input.size || 0);
   const caption = String(input.caption || "").trim();
   if (!leadId) return { ok: false, error: "Lead ID is required." };
-  if (!/^601\d{8,9}$/.test(phone)) return { ok: false, error: "Customer phone number is invalid." };
+  if (!/^\d{8,15}$/.test(phone)) return { ok: false, error: "Customer phone number is invalid." };
   if (!fileName) return { ok: false, error: "Please choose an image or PDF file." };
   const limit = WHATSAPP_MEDIA_LIMITS[mimeType];
   if (!limit) return { ok: false, error: "Only JPG, PNG and PDF files are supported." };
