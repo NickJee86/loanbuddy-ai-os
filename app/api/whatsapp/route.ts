@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sessionCookieName, verifySession } from "../../auth";
 import { appendAudit, readSheetValues, rowsToRecords, writableSheetContext, writeSheetValues } from "../../google-sheets-write";
-import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMediaPayload, matchesPreLeadConversation, OUTBOX_HEADERS, validateManualWhatsApp, validateWhatsAppAttachment } from "../../whatsapp-outbox.mjs";
+import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMediaPayload, matchesPreLeadConversation, OUTBOX_HEADERS, shouldCancelAutomatedOutboxRow, validateManualWhatsApp, validateWhatsAppAttachment } from "../../whatsapp-outbox.mjs";
 import { detectSupportedDocumentMime } from "../../file-signature.mjs";
 
 export const runtime = "nodejs";
@@ -59,6 +59,14 @@ export async function POST(request: NextRequest) {
       Name: body.leadName || "WhatsApp User",
     };
     if (operation === "send" || operation === "send_media") {
+      const stateValues = await readSheetValues(sheetId, token, "Conversation_State!A1:AZ");
+      const conversation = rowsToRecords(stateValues).find(({ record }) =>
+        String(record["Lead ID"] || "").trim() === leadId ||
+        String(record["Phone Number"] || "").replace(/\D/g, "") === requestedPhone.replace(/\D/g, "")
+      )?.record;
+      if (String(conversation?.["AI Status"] || "").trim() !== "PAUSED_MANUAL") {
+        return NextResponse.json({ error: "Take over this conversation before sending a manual message." }, { status: 409 });
+      }
       if (operation === "send_media") {
         const checked = validateWhatsAppAttachment({ ...body, leadId, phone: body.phone || lead["Phone Number"], fileName: mediaFile?.name, mimeType: mediaFile?.type, size: mediaFile?.size, caption: body.message });
         if (!checked.ok || !mediaFile) return NextResponse.json({ error: checked.error || "Please choose a file." }, { status: 400 });
@@ -100,17 +108,38 @@ export async function POST(request: NextRequest) {
     const stateValues = await readSheetValues(sheetId, token, "Conversation_State!A1:AZ");
     const originalHeaders = stateValues[0] || [];
     if (!originalHeaders.length) return NextResponse.json({ error: "Conversation state is not configured." }, { status: 503 });
-    const headers = [...originalHeaders, ...["AI Status", "AI Paused By", "AI Paused At"].filter((header) => !originalHeaders.includes(header))];
+    const headers = [...originalHeaders, ...["AI Status", "AI Paused By", "AI Paused At", "AI Resumed At", "Human Owner"].filter((header) => !originalHeaders.includes(header))];
     if (headers.length !== originalHeaders.length) await writeSheetValues(sheetId, token, `Conversation_State!A1:${columnName(headers.length - 1)}1`, [headers]);
     const found = rowsToRecords([headers, ...stateValues.slice(1)]).find(({ record }) => String(record["Lead ID"] || "").trim() === leadId);
     const now = new Date().toISOString();
     const record = found?.record || Object.fromEntries(headers.map((header) => [header, ""]));
     record["Lead ID"] = leadId; record["Phone Number"] ||= body.phone || lead["Phone Number"] || ""; record["Lead Name"] ||= body.leadName || lead["Lead Name"] || lead.Name || "";
-    record["AI Status"] = operation === "takeover" ? "PAUSED_MANUAL" : "ACTIVE"; record["AI Paused By"] = operation === "takeover" ? user.username : ""; record["AI Paused At"] = operation === "takeover" ? now : ""; record["Last Updated"] = now;
+    record["AI Status"] = operation === "takeover" ? "PAUSED_MANUAL" : "ACTIVE";
+    record["AI Paused By"] = operation === "takeover" ? user.username : "";
+    record["AI Paused At"] = operation === "takeover" ? now : "";
+    record["AI Resumed At"] = operation === "resume_ai" ? now : "";
+    record["Human Owner"] = operation === "takeover" ? user.username : "";
+    record["Next Action"] = operation === "takeover" ? "Human handling conversation" : "AI re-evaluate from latest customer state";
+    record["Last Updated"] = now;
     if (found) await writeSheetValues(sheetId, token, `Conversation_State!A${found.rowNumber}:${columnName(headers.length - 1)}${found.rowNumber}`, [recordRow(headers, record)]);
     else await writeSheetValues(sheetId, token, `Conversation_State!A:${columnName(headers.length - 1)}`, [recordRow(headers, record)], true);
-    await appendAudit(sheetId, token, operation === "takeover" ? "AI_MANUAL_TAKEOVER" : "AI_RESUMED", user.username, leadId);
-    return NextResponse.json({ ok: true, aiStatus: record["AI Status"] });
+    let cancelledMessages = 0;
+    if (operation === "takeover") {
+      const outboxValues = await readSheetValues(sheetId, token, "Message_Outbox!A1:Y");
+      const outboxHeaders = outboxValues[0] || [];
+      const statusColumn = outboxHeaders.indexOf("Send Status");
+      const deliveryColumn = outboxHeaders.indexOf("Delivery Status");
+      const remarksColumn = outboxHeaders.indexOf("Remarks");
+      for (const { record: outboxRecord, rowNumber } of rowsToRecords(outboxValues)) {
+        if (!shouldCancelAutomatedOutboxRow(outboxRecord, { leadId, phone: record["Phone Number"] })) continue;
+        if (statusColumn >= 0) await writeSheetValues(sheetId, token, `Message_Outbox!${columnName(statusColumn)}${rowNumber}`, [["Cancelled"]]);
+        if (deliveryColumn >= 0) await writeSheetValues(sheetId, token, `Message_Outbox!${columnName(deliveryColumn)}${rowNumber}`, [["CANCELLED"]]);
+        if (remarksColumn >= 0) await writeSheetValues(sheetId, token, `Message_Outbox!${columnName(remarksColumn)}${rowNumber}`, [[`Cancelled by manual takeover at ${now}`]]);
+        cancelledMessages += 1;
+      }
+    }
+    await appendAudit(sheetId, token, operation === "takeover" ? "AI_MANUAL_TAKEOVER" : "AI_RESUMED", user.username, leadId, JSON.stringify({ cancelledMessages, aiStatus: record["AI Status"] }));
+    return NextResponse.json({ ok: true, aiStatus: record["AI Status"], cancelledMessages });
   } catch (error) {
     console.error("WhatsApp CRM operation failed", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to complete the WhatsApp operation." }, { status: 500 });

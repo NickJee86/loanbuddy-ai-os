@@ -8,6 +8,19 @@ export const WHATSAPP_MEDIA_LIMITS = Object.freeze({
   "application/pdf": 10 * 1024 * 1024,
 });
 
+export function shouldCancelAutomatedOutboxRow(row = {}, identity = {}) {
+  const leadId = String(identity.leadId || "").trim();
+  const phone = String(identity.phone || "").replace(/\D/g, "").replace(/^0/, "60");
+  const rowLeadId = String(row["Lead ID"] || "").trim();
+  const rowPhone = String(row["Phone Number"] || "").replace(/\D/g, "").replace(/^0/, "60");
+  const matchesCustomer = (leadId && rowLeadId === leadId) || (phone && rowPhone === phone);
+  const pending = String(row["Send Status"] || "").trim().toLowerCase() === "pending";
+  const source = String(row.Source || "").trim().toUpperCase();
+  const messageType = String(row["Message Type"] || "").trim().toUpperCase();
+  const manual = source === "CRM_MANUAL" || messageType === "MANUAL_CRM";
+  return Boolean(matchesCustomer && pending && !manual);
+}
+
 export function matchesPreLeadConversation(input = {}) {
   const leadId = String(input.leadId || "").trim();
   const phoneKey = String(input.phone || "").replace(/\D/g, "").replace(/^0/, "60");
