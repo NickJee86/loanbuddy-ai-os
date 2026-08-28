@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sessionCookieName, verifySession } from "../../auth";
 import { appendAudit, readSheetValues, rowsToRecords, writableSheetContext, writeSheetValues } from "../../google-sheets-write";
-import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMediaPayload, OUTBOX_HEADERS, validateManualWhatsApp, validateWhatsAppAttachment } from "../../whatsapp-outbox.mjs";
+import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMediaPayload, matchesPreLeadConversation, OUTBOX_HEADERS, validateManualWhatsApp, validateWhatsAppAttachment } from "../../whatsapp-outbox.mjs";
 import { detectSupportedDocumentMime } from "../../file-signature.mjs";
 
 export const runtime = "nodejs";
@@ -38,12 +38,16 @@ export async function POST(request: NextRequest) {
     const { sheetId, token } = await writableSheetContext();
     const leadValues = await readSheetValues(sheetId, token, "Leads!A1:AZ");
     const leadRecord = rowsToRecords(leadValues).find(({ record }) => String(record["Lead ID"] || "").trim() === leadId)?.record;
-    const phoneIdentity = (value: string) => String(value || "").replace(/\D/g, "");
     const requestedPhone = String(body.phone || "").trim();
+    let preLeadRows: Array<Record<string, string>> = [];
+    if (!leadRecord && ["admin", "regional_manager"].includes(user.role)) {
+      const ranges = ["Customer_Inbox!A1:AZ", "Customer_Reply_Log!A1:AZ"];
+      const sourceValues = await Promise.all(ranges.map((range) => readSheetValues(sheetId, token, range).catch(() => [])));
+      preLeadRows = sourceValues.flatMap((values) => rowsToRecords(values).map(({ record }) => record));
+    }
     const isAuthorizedPreLead = !leadRecord &&
       ["admin", "regional_manager"].includes(user.role) &&
-      Boolean(phoneIdentity(leadId)) &&
-      phoneIdentity(leadId) === phoneIdentity(requestedPhone);
+      matchesPreLeadConversation({ leadId, phone: requestedPhone, rows: preLeadRows });
     if (!leadRecord && !isAuthorizedPreLead) return NextResponse.json({ error: "Customer record not found or pre-lead access is not permitted." }, { status: 404 });
     if (leadRecord && !canAccess(user, leadRecord)) return NextResponse.json({ error: "You do not have access to this customer." }, { status: 403 });
     const lead = leadRecord || {

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMediaPayload, validateManualWhatsApp, validateWhatsAppAttachment } from "../app/whatsapp-outbox.mjs";
+import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMediaPayload, matchesPreLeadConversation, validateManualWhatsApp, validateWhatsAppAttachment } from "../app/whatsapp-outbox.mjs";
 
 test("normalizes Malaysian mobile and validates content", () => {
   assert.deepEqual(validateManualWhatsApp({ leadId: "L1", phone: "016-896 8888", message: " Hi " }), { ok: true, leadId: "L1", phone: "60168968888", message: "Hi" });
@@ -26,4 +26,21 @@ test("builds Meta image and document payloads", () => {
 test("builds a sent media outbox row", () => {
   const row = buildManualMediaOutboxRecord({ leadId: "L1", phone: "60168968888", fileName: "offer.png", mimeType: "image/png", size: 1024, caption: "Offer", mediaId: "media-1" }, "2026-08-28T00:00:00.000Z", "wamid-1");
   assert.equal(row["Message Type"], "IMAGE"); assert.equal(row["Attachment Reference"], "media-1"); assert.equal(row["Delivery Status"], "ACCEPTED");
+});
+
+
+test("pre-lead access accepts a verified temporary ID and phone pair", () => {
+  assert.equal(matchesPreLeadConversation({
+    leadId: "WA-NEW-1",
+    phone: "+60147984989",
+    rows: [{ "Lead ID": "WA-NEW-1", From: "+60147984989" }],
+  }), true);
+});
+
+test("pre-lead access rejects a temporary ID paired with another phone", () => {
+  assert.equal(matchesPreLeadConversation({
+    leadId: "WA-NEW-1",
+    phone: "+60140000000",
+    rows: [{ "Lead ID": "WA-NEW-1", From: "+60147984989" }],
+  }), false);
 });
