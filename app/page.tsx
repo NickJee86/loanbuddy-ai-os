@@ -1380,7 +1380,27 @@ function FollowUpWorkspace({
     if (scope === "FAILED") return /failed|error|rejected|undeliver/i.test(`${row.Status} ${row["Delivery Status"]}`);
     if (scope === "FINAL") return /final|reminder[_ ]?4/i.test(`${row["Reminder Stage"]} ${row["Last AI Message Type"]}`);
     return true;
+  }).sort((left, right) => {
+    const rank = { URGENT: 0, HIGH: 1, NORMAL: 2, LOW: 3 } as Record<string, number>;
+    const priorityDifference = (rank[followUpPriority(left, renderNow)] ?? 4) - (rank[followUpPriority(right, renderNow)] ?? 4);
+    if (priorityDifference) return priorityDifference;
+    const leftDue = Date.parse(pick(left, ["Due At", "Scheduled At", "Follow Up Date"]));
+    const rightDue = Date.parse(pick(right, ["Due At", "Scheduled At", "Follow Up Date"]));
+    return (Number.isFinite(leftDue) ? leftDue : Number.MAX_SAFE_INTEGER) - (Number.isFinite(rightDue) ? rightDue : Number.MAX_SAFE_INTEGER);
   });
+  const displayTime = (value: string) => {
+    const parsed = Date.parse(value);
+    if (!Number.isFinite(parsed)) return value;
+    return new Intl.DateTimeFormat("en-MY", {
+      timeZone: "Asia/Kuala_Lumpur",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).format(parsed);
+  };
   const perform = async (row: SheetRow, action: string) => {
     const leadId = pick(row, ["Lead ID"]);
     const phone = pick(row, ["Phone Number"]);
@@ -1427,13 +1447,13 @@ function FollowUpWorkspace({
       <div className="table-toolbar"><div><h2>Follow-up Actions</h2><p>{filtered.length} operational cases · actions are audited</p></div></div>
       <div className="table-scroll"><table><thead><tr><th>Priority</th><th>Customer</th><th>Type / stage</th><th>Next Action</th><th>Last / due</th><th>Status</th><th>Assigned</th><th>Actions</th></tr></thead>
         <tbody>{filtered.length ? filtered.map((row, index) => {
-          const leadId = pick(row, ["Lead ID"]); const phone = pick(row, ["Phone Number"]); const aiPaused = normalized(row["AI Status"]) === "paused" || normalized(row.Status) === "paused"; const failed = /failed|error|rejected|undeliver/i.test(`${row.Status} ${row["Delivery Status"]}`);
+          const leadId = pick(row, ["Lead ID"]); const phone = pick(row, ["Phone Number"]); const aiPaused = normalized(row["AI Status"]) === "paused" || normalized(row.Status) === "paused"; const failed = /failed|error|rejected|undeliver/i.test(`${row.Status} ${row["Delivery Status"]}`); const dueValue = pick(row, ["Due At", "Scheduled At", "Follow Up Date"]); const dueTime = Date.parse(dueValue);
           return <tr key={`${leadId}-${phone}-${index}`}>
             <td><span className={`follow-priority ${followUpPriority(row, renderNow).toLowerCase()}`}>{followUpPriority(row, renderNow)}</span></td>
             <td><strong>{pick(row, ["Lead Name", "Lead ID"])}</strong><small>{phone}</small></td>
             <td>{pick(row, ["Follow Up Type", "Reason"])}<small>{pick(row, ["Reminder Stage", "Last AI Message Type"])}</small></td>
             <td>{pick(row, ["Next Action", "Missing Documents", "Missing Fields"])}</td>
-            <td>{pick(row, ["Last Reminder At", "Last AI Message At"])}<small>Due: {pick(row, ["Due At", "Scheduled At", "Follow Up Date"])}</small></td>
+            <td>{displayTime(pick(row, ["Last Reminder At", "Last AI Message At"]))}<small>{Number.isFinite(dueTime) ? `${dueTime <= renderNow ? "Overdue" : "Due"}: ${displayTime(dueValue)} MYT` : dueValue}</small></td>
             <td>{pick(row, ["Status"])}<small>{pick(row, ["Delivery Status", "Outcome"])}</small></td>
             <td>{pick(row, ["Assigned To", "Staff ID"])}</td>
             <td><div className="follow-row-actions">
