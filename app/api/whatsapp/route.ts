@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sessionCookieName, verifySession } from "../../auth";
 import { appendAudit, readSheetValues, rowsToRecords, writableSheetContext, writeSheetValues } from "../../google-sheets-write";
 import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMediaPayload, OUTBOX_HEADERS, validateManualWhatsApp, validateWhatsAppAttachment } from "../../whatsapp-outbox.mjs";
+import { detectSupportedDocumentMime } from "../../file-signature.mjs";
 
 export const runtime = "nodejs";
 type Body = { operation?: "send" | "send_media" | "takeover" | "resume_ai"; leadId?: string; leadName?: string; phone?: string; branchId?: string; salesId?: string; message?: string; language?: string; idempotencyKey?: string };
@@ -43,6 +44,8 @@ export async function POST(request: NextRequest) {
       if (operation === "send_media") {
         const checked = validateWhatsAppAttachment({ ...body, leadId, phone: body.phone || lead["Phone Number"], fileName: mediaFile?.name, mimeType: mediaFile?.type, size: mediaFile?.size, caption: body.message });
         if (!checked.ok || !mediaFile) return NextResponse.json({ error: checked.error || "Please choose a file." }, { status: 400 });
+        const detectedMime = detectSupportedDocumentMime(new Uint8Array(await mediaFile.arrayBuffer()));
+        if (!detectedMime || detectedMime !== checked.mimeType) return NextResponse.json({ error: "The file content does not match its JPG, PNG or PDF type." }, { status: 400 });
         const accessToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
         const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
         const graphVersion = process.env.WHATSAPP_GRAPH_API_VERSION?.trim() || "v23.0";
