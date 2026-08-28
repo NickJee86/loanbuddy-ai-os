@@ -1407,14 +1407,15 @@ function FollowUpWorkspace({
         <button className={scope === "FINAL" ? "active" : ""} onClick={() => setScope("FINAL")}><strong>{metrics.finalStage}</strong><span>Final stage</span></button>
       </div>
       <div className="table-toolbar"><div><h2>Follow-up Actions</h2><p>{filtered.length} operational cases · actions are audited</p></div></div>
-      <div className="table-scroll"><table><thead><tr><th>Priority</th><th>Customer</th><th>Type / stage</th><th>Last / next</th><th>Status</th><th>Assigned</th><th>Actions</th></tr></thead>
+      <div className="table-scroll"><table><thead><tr><th>Priority</th><th>Customer</th><th>Type / stage</th><th>Next Action</th><th>Last / due</th><th>Status</th><th>Assigned</th><th>Actions</th></tr></thead>
         <tbody>{filtered.length ? filtered.map((row, index) => {
           const leadId = pick(row, ["Lead ID"]); const phone = pick(row, ["Phone Number"]); const aiPaused = normalized(row["AI Status"]) === "paused" || normalized(row.Status) === "paused"; const failed = /failed|error|rejected|undeliver/i.test(`${row.Status} ${row["Delivery Status"]}`);
           return <tr key={`${leadId}-${phone}-${index}`}>
             <td><span className={`follow-priority ${followUpPriority(row, renderNow).toLowerCase()}`}>{followUpPriority(row, renderNow)}</span></td>
             <td><strong>{pick(row, ["Lead Name", "Lead ID"])}</strong><small>{phone}</small></td>
             <td>{pick(row, ["Follow Up Type", "Reason"])}<small>{pick(row, ["Reminder Stage", "Last AI Message Type"])}</small></td>
-            <td>{pick(row, ["Last Reminder At", "Last AI Message At"])}<small>Next: {pick(row, ["Due At", "Scheduled At", "Follow Up Date"])}</small></td>
+            <td>{pick(row, ["Next Action", "Missing Documents", "Missing Fields"])}</td>
+            <td>{pick(row, ["Last Reminder At", "Last AI Message At"])}<small>Due: {pick(row, ["Due At", "Scheduled At", "Follow Up Date"])}</small></td>
             <td>{pick(row, ["Status"])}<small>{pick(row, ["Delivery Status", "Outcome"])}</small></td>
             <td>{pick(row, ["Assigned To", "Staff ID"])}</td>
             <td><div className="follow-row-actions">
@@ -1428,7 +1429,7 @@ function FollowUpWorkspace({
               {leadId !== "—" && <button className="secondary" onClick={() => onOpenLead?.(leadId)}>Open</button>}
             </div></td>
           </tr>;
-        }) : <tr><td colSpan={7}><strong>No matching follow-up cases</strong></td></tr>}</tbody></table></div>
+        }) : <tr><td colSpan={8}><strong>No matching follow-up cases</strong></td></tr>}</tbody></table></div>
       {message && <div className={`form-message follow-up-op-message${error ? " error" : ""}`}>{message}</div>}
     </section>
   );
