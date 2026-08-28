@@ -8,6 +8,21 @@ export const WHATSAPP_MEDIA_LIMITS = Object.freeze({
   "application/pdf": 10 * 1024 * 1024,
 });
 
+export function matchesPreLeadConversation(input = {}) {
+  const leadId = String(input.leadId || "").trim();
+  const phoneKey = String(input.phone || "").replace(/\D/g, "").replace(/^0/, "60");
+  if (!leadId || !/^601\d{8,9}$/.test(phoneKey)) return false;
+  const identityPhone = leadId.replace(/\D/g, "").replace(/^0/, "60");
+  if (identityPhone === phoneKey) return true;
+  return (input.rows || []).some((row) => {
+    const rowLeadId = String(row?.["Lead ID"] || row?.LeadId || row?.leadId || "").trim();
+    const rowPhone = String(row?.["Phone Number"] || row?.["WhatsApp Number"] || row?.["Customer Phone"] || row?.Phone || row?.From || "")
+      .replace(/\D/g, "")
+      .replace(/^0/, "60");
+    return rowLeadId === leadId && rowPhone === phoneKey;
+  });
+}
+
 export function validateManualWhatsApp(input = {}) {
   const leadId = String(input.leadId || "").trim();
   const phone = String(input.phone || "").replace(/\D/g, "").replace(/^0/, "60");
