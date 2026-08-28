@@ -2001,6 +2001,10 @@ function Customer360Workspace({
   const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState("All stages");
   const [selectedId, setSelectedId] = useState(initialLeadId || "");
+  const [whatsappBusy, setWhatsappBusy] = useState("");
+  const [whatsappNotice, setWhatsappNotice] = useState("");
+  const [whatsappMessage, setWhatsappMessage] = useState("");
+  const [manualOverride, setManualOverride] = useState<{ leadId: string; paused: boolean } | null>(null);
   const customerStages = Array.from(
     new Set(summaries.map((summary) => summary.lead.stage).filter(Boolean)),
   ).sort();
@@ -2018,6 +2022,39 @@ function Customer360Workspace({
         (row) => row["Lead ID"] === selected.lead.id,
       )
     : undefined;
+  const persistedPaused = state?.["AI Status"] === "PAUSED_MANUAL";
+  const whatsappPaused = manualOverride && manualOverride.leadId === selected?.lead.id
+    ? manualOverride.paused
+    : persistedPaused;
+  const whatsappOwner = state?.["Human Owner"] || state?.["AI Paused By"] || "";
+
+  async function whatsappAction(operation: "send" | "takeover" | "resume_ai") {
+    if (!selected || whatsappBusy) return;
+    setWhatsappBusy(operation);
+    setWhatsappNotice("");
+    try {
+      const response = await fetch("/api/whatsapp", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ operation, leadId: selected.lead.id, leadName: selected.lead.name, phone: selected.lead.phone, branchId: selected.lead.branch, salesId: selected.lead.owner, message: whatsappMessage, idempotencyKey: crypto.randomUUID() }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "WhatsApp operation failed.");
+      if (operation === "send") {
+        setWhatsappMessage("");
+        setWhatsappNotice("Message queued for WhatsApp delivery.");
+      } else {
+        const paused = operation === "takeover";
+        setManualOverride({ leadId: selected.lead.id, paused });
+        setWhatsappNotice(paused ? "AI paused. You now control this conversation." : "AI conversation resumed.");
+      }
+      await Promise.resolve(onChanged());
+    } catch (error) {
+      setWhatsappNotice(error instanceof Error ? error.message : "WhatsApp operation failed.");
+    } finally {
+      setWhatsappBusy("");
+    }
+  }
   const qualification = selected
     ? qualificationSnapshot(selected.lead, state || {})
     : { completed: 0, total: 0, missing: [], fields: [] };
@@ -2292,16 +2329,37 @@ function Customer360Workspace({
                   </div>
                 )}
               </div>
-              <footer className="composer-locked">
-                <div>
-                  <strong>WhatsApp automation live</strong>
-                  <span>
-                    Conversation history is live and read-only. S00 automated
-                    replies are active; CRM manual sending remains intentionally
-                    locked.
-                  </span>
+              <footer className="whatsapp-composer">
+                <div className="ai-mode-banner">
+                  <span><strong>{whatsappPaused ? "Human managed" : "AI managed"}</strong> {whatsappPaused ? `AI replies and queued automation are paused${whatsappOwner ? ` · Owner: ${whatsappOwner}` : ""}.` : "Take over to reply manually. Resume AI when staff handling is complete."}</span>
+                  <button
+                    type="button"
+                    className={whatsappPaused ? "secondary-button" : "danger-button"}
+                    disabled={user?.role === "readonly" || Boolean(whatsappBusy)}
+                    onClick={() => whatsappAction(whatsappPaused ? "resume_ai" : "takeover")}
+                  >
+                    {whatsappBusy === "takeover" || whatsappBusy === "resume_ai" ? "Updating…" : whatsappPaused ? "Resume AI" : "Take over from AI"}
+                  </button>
                 </div>
-                <button disabled>Send message</button>
+                <textarea
+                  aria-label="WhatsApp message"
+                  value={whatsappMessage}
+                  maxLength={3000}
+                  placeholder={whatsappPaused ? "Type a WhatsApp message…" : "Take over from AI before sending manually…"}
+                  disabled={!whatsappPaused || user?.role === "readonly" || Boolean(whatsappBusy)}
+                  onChange={(event) => setWhatsappMessage(event.target.value)}
+                />
+                <div>
+                  <span>{whatsappMessage.length}/3000</span>
+                  <button
+                    type="button"
+                    disabled={!whatsappPaused || !whatsappMessage.trim() || user?.role === "readonly" || Boolean(whatsappBusy)}
+                    onClick={() => whatsappAction("send")}
+                  >
+                    {whatsappBusy === "send" ? "Queuing…" : "Send WhatsApp"}
+                  </button>
+                </div>
+                {whatsappNotice && <p className="whatsapp-notice">{whatsappNotice}</p>}
               </footer>
             </div>
             <aside className="customer-context">
