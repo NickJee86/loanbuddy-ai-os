@@ -106,6 +106,19 @@ test("conversation summary includes WhatsApp activity before a Leads row exists"
   assert.equal(summaries[0].timeline[0].text, "hi");
 });
 
+test("pre-lead conversation uses From as the sendable phone when no phone column exists", () => {
+  const summaries = buildConversationSummaries([], {
+    customerInbox: [{
+      From: "+60147984989",
+      "Customer Message": "hi",
+      Timestamp: "2026-08-26T02:00:00Z",
+    }],
+  });
+  assert.equal(summaries.length, 1);
+  assert.equal(summaries[0].lead.id, "+60147984989");
+  assert.equal(summaries[0].lead.phone, "+60147984989");
+});
+
 test("conversation records combine inbox, reply log and outbox instead of hiding sources", () => {
   const rows = buildConversationRows(
     [{ id: "LB-1", name: "Synthetic Customer", phone: "60123456789", updated: "" }],
