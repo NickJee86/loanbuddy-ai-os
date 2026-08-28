@@ -1,0 +1,30 @@
+{
+  "runtime_store": "LoanBuddy_KB_Runtime_V2",
+  "status": "DEPLOYED",
+  "knowledge_intent": "loanbuddy_branch_addresses",
+  "customer_facing": true,
+  "reply_rule": "When a customer asks for a LoanBuddy location, reply with the matching full address and both Google Maps and Waze links. If the requested branch is unclear, list all three branches without inventing another location.",
+  "branches": [
+    {
+      "branch_id": "BR001",
+      "name": "LoanBuddy Kuala Lumpur",
+      "address": "No.15-4, Jalan Medan Tuanku 1, Medan Tuanku, 50300 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur",
+      "google_maps": "https://www.google.com/maps/search/?api=1&query=No.15-4%2C%20Jalan%20Medan%20Tuanku%201%2C%20Medan%20Tuanku%2C%2050300%20Kuala%20Lumpur%2C%20Wilayah%20Persekutuan%20Kuala%20Lumpur",
+      "waze": "https://www.waze.com/ul?q=No.15-4%2C%20Jalan%20Medan%20Tuanku%201%2C%20Medan%20Tuanku%2C%2050300%20Kuala%20Lumpur%2C%20Wilayah%20Persekutuan%20Kuala%20Lumpur&navigate=yes"
+    },
+    {
+      "branch_id": "BR002",
+      "name": "LoanBuddy Bintulu",
+      "address": "Lot 8093, Sublot 20, 1st Floor, Bintulu Sentral, Jln Kidurong, 97000 Bintulu, Sarawak",
+      "google_maps": "https://www.google.com/maps/search/?api=1&query=Lot%208093%2C%20Sublot%2020%2C%201st%20Floor%2C%20Bintulu%20Sentral%2C%20Jln%20Kidurong%2C%2097000%20Bintulu%2C%20Sarawak",
+      "waze": "https://www.waze.com/ul?q=Lot%208093%2C%20Sublot%2020%2C%201st%20Floor%2C%20Bintulu%20Sentral%2C%20Jln%20Kidurong%2C%2097000%20Bintulu%2C%20Sarawak&navigate=yes"
+    },
+    {
+      "branch_id": "BR003",
+      "name": "LoanBuddy Kota Samarahan",
+      "address": "1st Floor, Lot 9269 (SL.75) Bandar Riyal, Jalan Muara Tuang Kota Samarahan, 94300 Kuching, Sarawak",
+      "google_maps": "https://www.google.com/maps/search/?api=1&query=1st%20Floor%2C%20Lot%209269%20%28SL.75%29%20Bandar%20Riyal%2C%20Jalan%20Muara%20Tuang%20Kota%20Samarahan%2C%2094300%20Kuching%2C%20Sarawak",
+      "waze": "https://www.waze.com/ul?q=1st%20Floor%2C%20Lot%209269%20%28SL.75%29%20Bandar%20Riyal%2C%20Jalan%20Muara%20Tuang%20Kota%20Samarahan%2C%2094300%20Kuching%2C%20Sarawak&navigate=yes"
+    }
+  ]
+}
