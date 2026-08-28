@@ -31,8 +31,16 @@ function columnName(index: number) {
   return name;
 }
 
+function canonicalPhone(value: string) {
+  return String(value || "").replace(/\D/g, "");
+}
+
 function sameCustomer(row: Record<string, string>, leadId: string, phone: string) {
-  return (leadId && row["Lead ID"] === leadId) || (phone && row["Phone Number"] === phone);
+  const rowLeadId = String(row["Lead ID"] || "").trim();
+  const rowPhone = canonicalPhone(
+    row["Phone Number"] || row["WhatsApp Number"] || row["Customer Phone"] || row.Phone || row.From,
+  );
+  return (leadId && rowLeadId === leadId.trim()) || (phone && rowPhone === canonicalPhone(phone));
 }
 
 async function ensureHeaders(sheetId: string, token: string, values: string[][]) {

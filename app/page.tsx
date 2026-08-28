@@ -3318,6 +3318,7 @@ function ModulePage({
       .filter((item) => !queuedLeadIds.has(item.lead.id))
       .map((item) => {
         const inactiveAt = pick(item.state || {}, ["Last Customer Message At", "Last Reply At", "Updated At", "Created At"]);
+        const nextAction = pick(item.state || {}, ["Next Action"]);
         const parsed = Date.parse(inactiveAt);
         const dueAt = Number.isFinite(parsed)
           ? new Date(parsed + DEFAULT_FOLLOW_UP_SETTINGS.firstMinutes * 60_000).toISOString()
@@ -3327,7 +3328,7 @@ function ModulePage({
         "Lead Name": item.lead.name,
         "Phone Number": item.lead.phone,
         "Follow Up Type": item.phase === "DOCUMENTS" ? "Missing documents" : "Incomplete information",
-        "Next Action": pick(item.state || {}, ["Next Action"]) || item.blocker,
+        "Next Action": nextAction === "—" ? item.blocker : nextAction,
         "Due At": dueAt,
         Status: item.phase,
         "Assigned To": item.lead.owner || (item.lead.processingRoute === "AI_DIRECT" ? "AI Direct" : "Unassigned"),
