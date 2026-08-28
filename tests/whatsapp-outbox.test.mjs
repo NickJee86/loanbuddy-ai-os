@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMediaPayload, matchesPreLeadConversation, validateManualWhatsApp, validateWhatsAppAttachment } from "../app/whatsapp-outbox.mjs";
+import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMediaPayload, matchesPreLeadConversation, shouldCancelAutomatedOutboxRow, validateManualWhatsApp, validateWhatsAppAttachment } from "../app/whatsapp-outbox.mjs";
 
 test("normalizes Malaysian mobile and validates content", () => {
   assert.deepEqual(validateManualWhatsApp({ leadId: "L1", phone: "016-896 8888", message: " Hi " }), { ok: true, leadId: "L1", phone: "60168968888", message: "Hi" });
@@ -43,4 +43,19 @@ test("pre-lead access rejects a temporary ID paired with another phone", () => {
     phone: "+60140000000",
     rows: [{ "Lead ID": "WA-NEW-1", From: "+60147984989" }],
   }), false);
+});
+
+test("manual takeover cancels pending automated messages for the same customer", () => {
+  assert.equal(shouldCancelAutomatedOutboxRow({
+    "Lead ID": "L1", "Phone Number": "60168968888", "Send Status": "Pending", "Message Type": "AI_DOCUMENT_REMINDER_1", Source: "S09",
+  }, { leadId: "L1", phone: "60168968888" }), true);
+});
+
+test("manual takeover preserves staff messages and other customers", () => {
+  assert.equal(shouldCancelAutomatedOutboxRow({
+    "Lead ID": "L1", "Phone Number": "60168968888", "Send Status": "Pending", "Message Type": "MANUAL_CRM", Source: "CRM_MANUAL",
+  }, { leadId: "L1", phone: "60168968888" }), false);
+  assert.equal(shouldCancelAutomatedOutboxRow({
+    "Lead ID": "L2", "Phone Number": "60120000000", "Send Status": "Pending", "Message Type": "AI_REPLY", Source: "S00",
+  }, { leadId: "L1", phone: "60168968888" }), false);
 });
