@@ -37,9 +37,23 @@ export async function POST(request: NextRequest) {
   try {
     const { sheetId, token } = await writableSheetContext();
     const leadValues = await readSheetValues(sheetId, token, "Leads!A1:AZ");
-    const lead = rowsToRecords(leadValues).find(({ record }) => String(record["Lead ID"] || "").trim() === leadId)?.record;
-    if (!lead) return NextResponse.json({ error: "Customer record not found." }, { status: 404 });
-    if (!canAccess(user, lead)) return NextResponse.json({ error: "You do not have access to this customer." }, { status: 403 });
+    const leadRecord = rowsToRecords(leadValues).find(({ record }) => String(record["Lead ID"] || "").trim() === leadId)?.record;
+    const phoneIdentity = (value: string) => String(value || "").replace(/\D/g, "");
+    const requestedPhone = String(body.phone || "").trim();
+    const isAuthorizedPreLead = !leadRecord &&
+      ["admin", "regional_manager"].includes(user.role) &&
+      Boolean(phoneIdentity(leadId)) &&
+      phoneIdentity(leadId) === phoneIdentity(requestedPhone);
+    if (!leadRecord && !isAuthorizedPreLead) return NextResponse.json({ error: "Customer record not found or pre-lead access is not permitted." }, { status: 404 });
+    if (leadRecord && !canAccess(user, leadRecord)) return NextResponse.json({ error: "You do not have access to this customer." }, { status: 403 });
+    const lead = leadRecord || {
+      "Lead ID": leadId,
+      "Lead Name": body.leadName || "WhatsApp User",
+      "Phone Number": requestedPhone,
+      "Branch ID": "",
+      "Assigned Sales ID": "",
+      Name: body.leadName || "WhatsApp User",
+    };
     if (operation === "send" || operation === "send_media") {
       if (operation === "send_media") {
         const checked = validateWhatsAppAttachment({ ...body, leadId, phone: body.phone || lead["Phone Number"], fileName: mediaFile?.name, mimeType: mediaFile?.type, size: mediaFile?.size, caption: body.message });
