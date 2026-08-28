@@ -54,7 +54,7 @@ import {
 } from "./fulfilment-control.mjs";
 import { CONSENT_TEMPLATE } from "./consent-template.mjs";
 import WhatsAppConsole from "./whatsapp-console";
-import { DEFAULT_FOLLOW_UP_SETTINGS } from "./follow-up-control.mjs";
+import { DEFAULT_FOLLOW_UP_SETTINGS, readFollowUpSettings } from "./follow-up-control.mjs";
 import { followUpMetrics, followUpPriority } from "./follow-up-operations.mjs";
 
 type NavKey =
@@ -1098,6 +1098,24 @@ function pick(row: SheetRow | undefined | null, keys: string[]) {
   if (!row) return "—";
   for (const key of keys) if (row[key]) return row[key];
   return "—";
+}
+
+function latestCustomerMessageAt(
+  data: Record<string, SheetRow[]>,
+  leadId: string,
+  phone: string,
+) {
+  const wantedLead = leadId.trim();
+  const wantedPhone = phone.replace(/\D/g, "");
+  let latest = 0;
+  for (const row of [...(data.Customer_Inbox || []), ...(data.Customer_Reply_Log || [])]) {
+    const rowLead = pick(row, ["Lead ID", "LeadId", "leadId"]);
+    const rowPhone = pick(row, ["Phone Number", "WhatsApp Number", "Customer Phone", "Phone", "From"]).replace(/\D/g, "");
+    if (!((wantedLead && rowLead === wantedLead) || (wantedPhone && rowPhone === wantedPhone))) continue;
+    const at = Date.parse(pick(row, ["Timestamp", "Reply Timestamp", "Received Date", "Created Date", "Last Updated"]));
+    if (Number.isFinite(at)) latest = Math.max(latest, at);
+  }
+  return latest ? new Date(latest).toISOString() : "";
 }
 
 type Column = { label: string; keys: string[] };
@@ -3304,6 +3322,7 @@ function ModulePage({
   }
 
   if (active === "Follow-up") {
+    const followUpSettings = readFollowUpSettings(data.Follow_Up_Settings || []);
     const queueRows = rows.filter((row) => {
       const status = normalized(row.Status);
       return !["resolved", "closed", "completed", "cancelled"].includes(
@@ -3318,11 +3337,14 @@ function ModulePage({
       .filter((item) => ["QUALIFICATION", "DOCUMENTS"].includes(item.phase))
       .filter((item) => !queuedLeadIds.has(item.lead.id))
       .map((item) => {
-        const inactiveAt = pick(item.state || {}, ["Last Customer Message At", "Last Reply At", "Updated At", "Created At"]);
+        const stateActivityAt = pick(item.state || {}, ["Last Customer Message At", "Last Reply At", "Updated At", "Created At"]);
+        const inactiveAt = Date.parse(stateActivityAt)
+          ? stateActivityAt
+          : latestCustomerMessageAt(data, item.lead.id, item.lead.phone);
         const nextAction = pick(item.state || {}, ["Next Action"]);
         const parsed = Date.parse(inactiveAt);
         const dueAt = Number.isFinite(parsed)
-          ? new Date(parsed + DEFAULT_FOLLOW_UP_SETTINGS.firstMinutes * 60_000).toISOString()
+          ? new Date(parsed + (followUpSettings.firstMinutes || DEFAULT_FOLLOW_UP_SETTINGS.firstMinutes) * 60_000).toISOString()
           : "Not scheduled";
         return ({
         "Lead ID": item.lead.id,

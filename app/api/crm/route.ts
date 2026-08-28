@@ -155,6 +155,7 @@ async function loadSnapshot(
     "LMS_Credit_Result",
     "LMS_Submission_Queue",
     "Follow_Up_Queue",
+    "Follow_Up_Settings",
     "Escalation_Log",
     "Audit_Log",
   ];
