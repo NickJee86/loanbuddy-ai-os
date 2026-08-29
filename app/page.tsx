@@ -1534,6 +1534,7 @@ function displayTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("en-MY", {
+    timeZone: "Asia/Kuala_Lumpur",
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -3594,7 +3595,7 @@ function ModulePage({
         "Lead ID": item.lead.id,
         "Lead Name": item.lead.name,
         Phase: item.phase,
-        "Next Requirement": item.blocker,
+        "Next Requirement": canonicalNextAction({ state: item.state || {} }).label,
         "Documents": `${item.documents.completed}/${item.documents.total}`,
         "Qualification": `${item.qualification.completed}/${item.qualification.total}`,
       }));
