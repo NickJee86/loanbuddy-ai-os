@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildApplicationRegister,
+  canonicalNextAction,
   formatConfidence,
   mergedFollowUpRows,
   mergedQualificationRows,
@@ -272,6 +273,25 @@ test("real Follow_Up_Queue rows take precedence over derived state rows", () => 
   );
   assert.equal(result.filter((row) => row["Lead ID"] === "LB-1").length, 1);
   assert.equal(result.find((row) => row["Lead ID"] === "LB-2").Source, "Conversation_State");
+});
+
+test("follow-up aggregation keeps only the latest state per customer", () => {
+  const result = mergedFollowUpRows([], [
+    { "Lead ID": "6012", "Next Action": "OLD", "Last Updated": "2026-08-01" },
+    { "Lead ID": "6012", "Next Action": "NEW", "Last Updated": "2026-08-02" },
+  ]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0]["Next Action"], "NEW");
+});
+
+test("canonical next action prioritizes the active conversation step", () => {
+  assert.deepEqual(
+    canonicalNextAction({
+      state: { "Current Step": "ASK_EMPLOYMENT_TYPE", "Next Action": "WAIT_CUSTOMER_REPLY" },
+      automation: { code: "AI_DOCUMENT_FOLLOW_UP", label: "Follow up documents" },
+    }),
+    { code: "ASK_EMPLOYMENT_TYPE", label: "Ask the customer about employment type" },
+  );
 });
 
 test("operational rows are fail-closed to the currently visible Lead IDs", () => {

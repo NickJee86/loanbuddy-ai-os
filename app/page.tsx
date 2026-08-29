@@ -28,6 +28,7 @@ import {
 import { buildActionCenter } from "./action-center.mjs";
 import {
   buildApplicationRegister,
+  canonicalNextAction,
   formatConfidence,
   latestRow,
   mergedFollowUpRows,
@@ -696,13 +697,17 @@ function stageShare(count: number, total: number) {
 
 function Dashboard({
   filteredLeads,
+  conversationLeads,
   onLead,
   connected,
 }: {
   filteredLeads: Lead[];
+  conversationLeads: Lead[];
   onLead: (lead: Lead) => void;
   connected: boolean;
 }) {
+  const formalIds = new Set(filteredLeads.map((lead) => lead.id));
+  const whatsappPreLeads = conversationLeads.filter((lead) => !formalIds.has(lead.id));
   const {
     new: newCount,
     contacted: contactedCount,
@@ -736,8 +741,8 @@ function Dashboard({
       <div className="metrics-grid">
         <MetricCard
           icon="◎"
-          title="New Leads"
-          value={String(newCount)}
+          title="WhatsApp Pre-leads"
+          value={String(whatsappPreLeads.length)}
           tone="teal"
         />
         <MetricCard
@@ -809,6 +814,12 @@ function Dashboard({
           <span>{stageShare(approvedCount, activePipelineTotal)}</span>
         </div>
       </section>
+      <LeadTable
+        title="Recent WhatsApp Conversations"
+        leads={recentLeads(whatsappPreLeads, 10)}
+        onLead={onLead}
+        connected={connected}
+      />
       <LeadTable
         title="Recent Leads"
         leads={recentLeads(filteredLeads, 10)}
@@ -2004,6 +2015,7 @@ function Customer360Workspace({
   const [whatsappBusy, setWhatsappBusy] = useState("");
   const [whatsappNotice, setWhatsappNotice] = useState("");
   const [whatsappMessage, setWhatsappMessage] = useState("");
+  const [contextTab, setContextTab] = useState<"Overview" | "Documents" | "Credit" | "LMS" | "Notes">("Overview");
   const [manualOverride, setManualOverride] = useState<{ leadId: string; paused: boolean } | null>(null);
   const customerStages = Array.from(
     new Set(summaries.map((summary) => summary.lead.stage).filter(Boolean)),
@@ -2134,6 +2146,11 @@ function Customer360Workspace({
         queueEligibility,
       } as any)
     : null;
+  const nextAction = canonicalNextAction({
+    state: state || {},
+    automation,
+    paused: whatsappPaused,
+  });
   const totalCustomerMessages = summaries.reduce(
     (total, item) => total + item.customerMessageCount,
     0,
@@ -2367,7 +2384,12 @@ function Customer360Workspace({
               </footer>
             </div>
             <aside className="customer-context">
-              <section>
+              <nav className="customer-context-tabs" aria-label="Customer details">
+                {(["Overview", "Documents", "Credit", "LMS", "Notes"] as const).map((tab) => (
+                  <button key={tab} type="button" className={contextTab === tab ? "active" : ""} onClick={() => setContextTab(tab)}>{tab}</button>
+                ))}
+              </nav>
+              {contextTab === "Overview" && <section>
                 <div className="context-heading">
                   <div>
                     <p className="eyebrow">CUSTOMER 360</p>
@@ -2415,17 +2437,17 @@ function Customer360Workspace({
                     </dd>
                   </div>
                 </dl>
-              </section>
-              {automation && (
+              </section>}
+              {contextTab === "Overview" && (
                 <section className="automation-decision">
                   <div className="context-heading">
                     <div>
                       <p className="eyebrow">AUTOMATION NEXT STEP</p>
-                      <h3>{automation.label}</h3>
+                      <h3>{nextAction.label}</h3>
                     </div>
                     <Chip
                       tone={
-                        automation.tone as
+                        (automation?.tone || "blue") as
                           | "teal"
                           | "blue"
                           | "amber"
@@ -2433,14 +2455,14 @@ function Customer360Workspace({
                           | "gray"
                       }
                     >
-                      {automation.readyForLms ? "READY" : "ACTIVE"}
+                      {automation?.readyForLms ? "READY" : whatsappPaused ? "PAUSED" : "ACTIVE"}
                     </Chip>
                   </div>
-                  <p>{automation.reason}</p>
-                  <code>{automation.code}</code>
+                  <p>{automation?.reason || "This is the single current action for this customer."}</p>
+                  <code>{nextAction.code}</code>
                 </section>
               )}
-              <section>
+              {contextTab === "Documents" && <section>
                 <div className="context-heading">
                   <div>
                     <p className="eyebrow">DOCUMENTS</p>
@@ -2497,8 +2519,8 @@ function Customer360Workspace({
                   })}
                 </div>
                 <OtherDocuments timeline={selected.timeline} />
-              </section>
-              <section>
+              </section>}
+              {contextTab === "Credit" && <section>
                 <div className="context-heading">
                   <div>
                     <p className="eyebrow">QUALIFICATION</p>
@@ -2520,12 +2542,8 @@ function Customer360Workspace({
                 )}
                 <dl className="status-list">
                   <div>
-                    <dt>Current step</dt>
-                    <dd>{pick(state || {}, ["Current Step"])}</dd>
-                  </div>
-                  <div>
-                    <dt>Next action</dt>
-                    <dd>{pick(state || {}, ["Next Action"])}</dd>
+                    <dt>Current action</dt>
+                    <dd>{nextAction.label}</dd>
                   </div>
                   <div>
                     <dt>Consent</dt>
@@ -2632,8 +2650,8 @@ function Customer360Workspace({
                     <dd>{pick(qualificationRecord, ["EPF Available"])}</dd>
                   </div>
                 </dl>
-              </section>
-              <section>
+              </section>}
+              {contextTab === "Credit" && <section>
                 <div className="context-heading">
                   <div>
                     <p className="eyebrow">PRE-LMS CREDIT</p>
@@ -2695,8 +2713,8 @@ function Customer360Workspace({
                     </dd>
                   </div>
                 </dl>
-              </section>
-              <section>
+              </section>}
+              {contextTab === "LMS" && <section>
                 <div className="context-heading">
                   <div>
                     <p className="eyebrow">VERIFICATION & LMS</p>
@@ -2743,8 +2761,8 @@ function Customer360Workspace({
                     <dd>{pick(lmsResult || {}, ["Final DSR"])}</dd>
                   </div>
                 </dl>
-              </section>
-              {postApproval && (
+              </section>}
+              {contextTab === "LMS" && postApproval && (
                 <section className="post-approval-context">
                   <div className="context-heading">
                     <div>
@@ -2785,7 +2803,7 @@ function Customer360Workspace({
                   )}
                 </section>
               )}
-              <CustomerActions
+              {contextTab === "Notes" && <CustomerActions
                 lead={selected.lead}
                 user={user}
                 onChanged={onChanged}
@@ -2798,7 +2816,7 @@ function Customer360Workspace({
                     (item) => item.type === "CTOS_CCRIS_CONSENT",
                   )?.record || null
                 }
-              />
+              />}
             </aside>
           </>
         ) : (
@@ -5730,12 +5748,13 @@ export default function Home() {
     () =>
       buildActionCenter({
         leads: dashboardLeads.map((lead) => lead.raw),
+        conversationLeads: workQueueCustomers,
         data: crm.data || {},
         role: crm.user?.role || "staff",
         connected: crm.connected,
         stale: Boolean(crm.stale),
       }) as ActionCenterResult,
-    [crm.connected, crm.data, crm.stale, crm.user?.role, dashboardLeads],
+    [crm.connected, crm.data, crm.stale, crm.user?.role, dashboardLeads, workQueueCustomers],
   );
   const existingDocuments = useMemo(() => {
     const result: Record<string, string> = {};
@@ -5835,6 +5854,7 @@ export default function Home() {
           ) : active === "Dashboard" ? (
             <Dashboard
               filteredLeads={dashboardLeads}
+              conversationLeads={workQueueCustomers}
               onLead={openCustomer}
               connected={crm.connected}
             />

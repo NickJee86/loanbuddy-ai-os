@@ -151,11 +151,16 @@ test("only admin and regional manager can see unlinked operational messages", ()
         "Phone Number": "60123456789",
         "Customer Message": "New WhatsApp customer before lead creation",
       },
+      {
+        "Lead ID": "60168968888",
+        "Phone Number": "60168968888",
+        "Customer Message": "Pre-lead state event with synthetic CRM identity",
+      },
     ],
   };
   const adminData = filterCrmDataForUser(user("admin"), rawData).data.Customer_Inbox;
   const staffData = filterCrmDataForUser(user("staff", ["BR002"], "K1357"), rawData).data.Customer_Inbox;
-  assert.equal(adminData.length, 4);
+  assert.equal(adminData.length, 5);
   assert.deepEqual(staffData.map((row) => row["Customer Message"]), ["Assigned"]);
 });
 

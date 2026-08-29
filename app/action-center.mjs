@@ -1,5 +1,6 @@
 import { buildPostApprovalCases } from "./post-approval.mjs";
 import { evaluateCreditBureauConsent } from "./credit-bureau-consent.mjs";
+import { mergedFollowUpRows } from "./case-workspace.mjs";
 
 function normalized(value) {
   return String(value || "")
@@ -175,21 +176,10 @@ export function buildActionCenter({
       .map((row) => String(row?.["Lead ID"] || "").trim())
       .filter(Boolean),
   );
-  const queueFollowUps = linkedRows(data.Follow_Up_Queue, leadIds).filter(
-    activeOperationalRow,
-  );
-  const queuedFollowUpLeadIds = new Set(
-    queueFollowUps
-      .map((row) => String(row?.["Lead ID"] || "").trim())
-      .filter(Boolean),
-  );
-  const stateFollowUps = linkedRows(data.Conversation_State, leadIds).filter(
-    (row) =>
-      String(row?.["Next Action"] || "").trim() &&
-      !queuedFollowUpLeadIds.has(String(row?.["Lead ID"] || "").trim()) &&
-      activeOperationalRow(row),
-  );
-  const followUps = [...queueFollowUps, ...stateFollowUps];
+  const followUps = linkedRows(
+    mergedFollowUpRows(data.Follow_Up_Queue, data.Conversation_State),
+    leadIds,
+  ).filter(activeOperationalRow);
   const escalations = linkedRows(data.Escalation_Log, leadIds).filter(
     activeOperationalRow,
   );

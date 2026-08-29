@@ -302,14 +302,35 @@ export function formatConfidence(value) {
 }
 
 export function mergedFollowUpRows(queueRows = [], stateRows = []) {
-  const rows = [...queueRows];
-  const queuedLeadIds = new Set(
-    queueRows.map((row) => clean(row["Lead ID"])).filter(Boolean),
-  );
-  for (const state of stateRows) {
+  const identity = (row) =>
+    clean(row["Lead ID"]) ||
+    phoneDigits(
+      row["Phone Number"] || row["WhatsApp Number"] || row["Customer Phone"],
+    );
+  const latestUnique = (rows) => {
+    const unique = new Map();
+    rows.forEach((row, index) => {
+      const key = identity(row);
+      if (!key) return;
+      const previous = unique.get(key);
+      const candidateTime = timeValue(row);
+      if (
+        !previous ||
+        candidateTime > previous.time ||
+        (candidateTime === previous.time && index > previous.index)
+      ) {
+        unique.set(key, { row, time: candidateTime, index });
+      }
+    });
+    return [...unique.values()].map(({ row }) => row);
+  };
+  const rows = latestUnique(queueRows);
+  const queuedIdentities = new Set(rows.map(identity).filter(Boolean));
+  for (const state of latestUnique(stateRows)) {
     const leadId = clean(state["Lead ID"]);
+    const rowIdentity = identity(state);
     const nextAction = clean(state["Next Action"]);
-    if (!leadId || !nextAction || queuedLeadIds.has(leadId)) continue;
+    if (!rowIdentity || !nextAction || queuedIdentities.has(rowIdentity)) continue;
     rows.push({
       "Lead ID": leadId,
       "Lead Name": state["Lead Name"] || "",
@@ -323,6 +344,30 @@ export function mergedFollowUpRows(queueRows = [], stateRows = []) {
     });
   }
   return rows;
+}
+
+/**
+ * @param {{state?: Record<string, unknown>, automation?: null | {code?: string, label?: string}, paused?: boolean}} input
+ */
+export function canonicalNextAction({ state = {}, automation = null, paused = false } = {}) {
+  if (paused) {
+    return { code: "HUMAN_HANDLING", label: "Staff is handling this conversation" };
+  }
+  const currentStep = clean(state["Current Step"]);
+  const nextAction = clean(state["Next Action"]);
+  const code = currentStep || nextAction || clean(automation?.code) || "WAIT_CUSTOMER_REPLY";
+  const labels = {
+    ASK_LOAN_PURPOSE: "Ask the customer what the loan is for",
+    ASK_EMPLOYMENT_TYPE: "Ask the customer about employment type",
+    ASK_EMPLOYMENT_TENURE: "Ask how long the customer has worked there",
+    ASK_MONTHLY_INCOME: "Ask for the customer's monthly income",
+    ASK_DOCUMENTS: "Request the next missing document",
+    WAIT_CUSTOMER_REPLY: "Wait for the customer's reply",
+  };
+  return {
+    code,
+    label: labels[normalized(code)] || clean(automation?.label) || code.replaceAll("_", " "),
+  };
 }
 
 function phoneDigits(value) {
