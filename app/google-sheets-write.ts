@@ -313,13 +313,16 @@ export function rowsToRecords(values: string[][]) {
   const headers = values[0] || [];
   return values
     .slice(1)
-    .filter((row) => row.some(Boolean))
-    .map((row, index) => ({
-      rowNumber: index + 2,
-      record: Object.fromEntries(
-        headers.map((header, column) => [header, row[column] || ""]),
-      ) as Record<string, string>,
-    }));
+    .flatMap((row, index) =>
+      row.some(Boolean)
+        ? [{
+            rowNumber: index + 2,
+            record: Object.fromEntries(
+              headers.map((header, column) => [header, row[column] || ""]),
+            ) as Record<string, string>,
+          }]
+        : [],
+    );
 }
 
 export async function appendAudit(
