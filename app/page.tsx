@@ -619,7 +619,7 @@ function ActionCenter({
           <article>
             <span>WhatsApp Cloud API</span>
             <Chip tone="teal">AUTOMATION LIVE</Chip>
-            <small>S00 replies are live; CRM manual sending remains locked</small>
+            <small>S00 replies are live; staff can take over, send manually and resume AI</small>
           </article>
         </div>
       </section>
@@ -1473,19 +1473,29 @@ function FollowUpWorkspace({
             <td><span className={`follow-priority ${followUpPriority(row, renderNow).toLowerCase()}`}>{followUpPriority(row, renderNow)}</span></td>
             <td><strong>{pick(row, ["Lead Name", "Lead ID"])}</strong><small>{phone}</small></td>
             <td>{pick(row, ["Follow Up Type", "Reason"])}<small>{pick(row, ["Reminder Stage", "Last AI Message Type"])}</small></td>
-            <td>{pick(row, ["Next Action", "Missing Documents", "Missing Fields"])}</td>
+            <td>{canonicalNextAction({
+              state: {
+                "Current Step": pick(row, ["Current Step"]) === "—" ? "" : pick(row, ["Current Step"]),
+                "Next Action": pick(row, ["Next Action", "Missing Documents", "Missing Fields"]),
+              },
+            }).label}</td>
             <td>{displayTime(pick(row, ["Last Reminder At", "Last AI Message At"]))}<small>{Number.isFinite(dueTime) ? `${dueTime <= renderNow ? "Overdue" : "Due"}: ${displayTime(dueValue)} MYT` : dueValue}</small></td>
             <td>{pick(row, ["Status"])}<small>{pick(row, ["Delivery Status", "Outcome"])}</small></td>
             <td>{pick(row, ["Assigned To", "Staff ID"])}</td>
-            <td><div className="follow-row-actions">
-              {canPerformFollowUpAction(user?.role, "QUEUE_NOW") && <button disabled={Boolean(busy)} onClick={() => perform(row, "QUEUE_NOW")}>Mark ready</button>}
-              {canPerformFollowUpAction(user?.role, aiPaused ? "RESUME" : "PAUSE") && <button disabled={Boolean(busy)} onClick={() => perform(row, aiPaused ? "RESUME" : "PAUSE")}>{aiPaused ? "Resume" : "Pause"}</button>}
-              {canPerformFollowUpAction(user?.role, "RESCHEDULE") && <button disabled={Boolean(busy)} onClick={() => perform(row, "RESCHEDULE")}>Reschedule</button>}
-              {canPerformFollowUpAction(user?.role, "SKIP") && <button disabled={Boolean(busy)} onClick={() => perform(row, "SKIP")}>Skip</button>}
-              {canPerformFollowUpAction(user?.role, "OUTCOME") && <button disabled={Boolean(busy)} onClick={() => perform(row, "OUTCOME")}>Outcome</button>}
-              {canPerformFollowUpAction(user?.role, "ASSIGN") && <button disabled={Boolean(busy)} onClick={() => perform(row, "ASSIGN")}>Assign</button>}
-              {failed && canPerformFollowUpAction(user?.role, "RETRY") && <button disabled={Boolean(busy)} onClick={() => perform(row, "RETRY")}>Retry</button>}
-              {leadId !== "—" && <button className="secondary" onClick={() => onOpenLead?.(leadId)}>Open</button>}
+            <td><div className="follow-row-actions compact">
+              {leadId !== "—" && <button className="follow-primary" onClick={() => onOpenLead?.(leadId)}>Open customer</button>}
+              <details className="follow-more-actions">
+                <summary>More</summary>
+                <div>
+                  {canPerformFollowUpAction(user?.role, "QUEUE_NOW") && <button disabled={Boolean(busy)} onClick={() => perform(row, "QUEUE_NOW")}>Mark ready</button>}
+                  {canPerformFollowUpAction(user?.role, aiPaused ? "RESUME" : "PAUSE") && <button disabled={Boolean(busy)} onClick={() => perform(row, aiPaused ? "RESUME" : "PAUSE")}>{aiPaused ? "Resume AI" : "Pause AI"}</button>}
+                  {canPerformFollowUpAction(user?.role, "RESCHEDULE") && <button disabled={Boolean(busy)} onClick={() => perform(row, "RESCHEDULE")}>Reschedule</button>}
+                  {canPerformFollowUpAction(user?.role, "SKIP") && <button disabled={Boolean(busy)} onClick={() => perform(row, "SKIP")}>Skip follow-up</button>}
+                  {canPerformFollowUpAction(user?.role, "OUTCOME") && <button disabled={Boolean(busy)} onClick={() => perform(row, "OUTCOME")}>Record outcome</button>}
+                  {canPerformFollowUpAction(user?.role, "ASSIGN") && <button disabled={Boolean(busy)} onClick={() => perform(row, "ASSIGN")}>Assign owner</button>}
+                  {failed && canPerformFollowUpAction(user?.role, "RETRY") && <button disabled={Boolean(busy)} onClick={() => perform(row, "RETRY")}>Retry</button>}
+                </div>
+              </details>
             </div></td>
           </tr>;
         }) : <tr><td colSpan={8}><strong>No matching follow-up cases</strong></td></tr>}</tbody></table></div>
