@@ -363,6 +363,8 @@ export function canonicalNextAction({ state = {}, automation = null, paused = fa
     ASK_MONTHLY_INCOME: "Ask for the customer's monthly income",
     ASK_DOCUMENTS: "Request the next missing document",
     WAIT_CUSTOMER_REPLY: "Wait for the customer's reply",
+    AI_RE_EVALUATE_FROM_LATEST_CUSTOMER_STATE: "Review the customer's latest reply",
+    HUMAN_HANDLING_CONVERSATION: "Staff is handling this conversation",
   };
   return {
     code,

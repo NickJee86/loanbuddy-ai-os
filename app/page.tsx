@@ -1471,8 +1471,8 @@ function FollowUpWorkspace({
           const leadId = pick(row, ["Lead ID"]); const phone = pick(row, ["Phone Number"]); const aiPaused = normalized(row["AI Status"]).startsWith("paused") || normalized(row.Status) === "paused"; const failed = /failed|error|rejected|undeliver/i.test(`${row.Status} ${row["Delivery Status"]}`); const dueValue = pick(row, ["Due At", "Scheduled At", "Follow Up Date"]); const dueTime = Date.parse(dueValue);
           return <tr key={`${leadId}-${phone}-${index}`}>
             <td><span className={`follow-priority ${followUpPriority(row, renderNow).toLowerCase()}`}>{followUpPriority(row, renderNow)}</span></td>
-            <td><strong>{pick(row, ["Lead Name", "Lead ID"])}</strong><small>{phone}</small></td>
-            <td>{pick(row, ["Follow Up Type", "Reason"])}<small>{pick(row, ["Reminder Stage", "Last AI Message Type"])}</small></td>
+            <td><strong>{/^\d+$/.test(pick(row, ["Lead Name", "Lead ID"])) ? "WhatsApp User" : pick(row, ["Lead Name", "Lead ID"])}</strong><small>{phone}</small></td>
+            <td>{pick(row, ["Follow Up Type", "Reason"]) === "CONVERSATION_NEXT_ACTION" ? "Conversation follow-up" : pick(row, ["Follow Up Type", "Reason"])}<small>{pick(row, ["Reminder Stage", "Last AI Message Type"])}</small></td>
             <td>{canonicalNextAction({
               state: {
                 "Current Step": pick(row, ["Current Step"]) === "—" ? "" : pick(row, ["Current Step"]),

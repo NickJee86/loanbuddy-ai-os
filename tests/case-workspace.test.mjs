@@ -294,6 +294,13 @@ test("canonical next action prioritizes the active conversation step", () => {
   );
 });
 
+test("canonical next action humanizes legacy automation instructions", () => {
+  assert.deepEqual(
+    canonicalNextAction({ state: { "Next Action": "AI re-evaluate from latest customer state" } }),
+    { code: "AI re-evaluate from latest customer state", label: "Review the customer's latest reply" },
+  );
+});
+
 test("operational rows are fail-closed to the currently visible Lead IDs", () => {
   const result = rowsForVisibleLeads(
     [
