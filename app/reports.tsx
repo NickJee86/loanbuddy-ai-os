@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { buildManagementReport } from "./reporting.mjs";
+import { mergedFollowUpRows } from "./case-workspace.mjs";
 
 type SheetRow = Record<string, string>;
 
@@ -172,11 +173,13 @@ export default function ManagementReports({
   data,
   connected,
   stale,
+  conversationLeads = [],
 }: {
   leads: SheetRow[];
   data: Record<string, SheetRow[]>;
   connected: boolean;
   stale?: boolean;
+  conversationLeads?: Array<{ id: string }>;
 }) {
   const report = useMemo(
     () => buildManagementReport({ leads, data }),
@@ -188,6 +191,11 @@ export default function ManagementReports({
   );
   const health = !connected ? "OFFLINE" : stale ? "STALE" : "HEALTHY";
   const healthTone = !connected ? "coral" : stale ? "amber" : "teal";
+  const whatsappMessages = (data.Customer_Inbox || []).length + (data.Message_Outbox || []).length;
+  const whatsappFollowUps = mergedFollowUpRows(
+    data.Follow_Up_Queue || [],
+    data.Conversation_State || [],
+  ).length;
 
   return (
     <div className="content-stack management-reports">
@@ -200,6 +208,19 @@ export default function ManagementReports({
           </span>
         </div>
         <b className={`health-badge health-${healthTone}`}>{health}</b>
+      </section>
+
+      <section className="panel whatsapp-funnel-report">
+        <div className="section-heading">
+          <div><h2>WhatsApp Customer Funnel</h2><p>Customers are counted before and after they become formal applications</p></div>
+          <span className="report-count">LIVE</span>
+        </div>
+        <div className="executive-kpi-grid">
+          <div><span>WhatsApp Pre-leads</span><strong>{number(conversationLeads.length)}</strong></div>
+          <div><span>Recorded Messages</span><strong>{number(whatsappMessages)}</strong></div>
+          <div><span>Open Follow-ups</span><strong>{number(whatsappFollowUps)}</strong></div>
+          <div><span>Formal Applications</span><strong>{number(report.overview.totalLeads)}</strong></div>
+        </div>
       </section>
 
       <div className="report-metric-grid">
@@ -333,15 +354,15 @@ export default function ManagementReports({
           </div>
           <div>
             <span>Open Follow-ups</span>
-            <strong>{number(report.operations.followUps)}</strong>
+            <strong>{number(whatsappFollowUps)}</strong>
           </div>
           <div>
             <span>Open Escalations</span>
             <strong>{number(report.operations.escalations)}</strong>
           </div>
           <div>
-            <span>Messages Today</span>
-            <strong>{number(report.operations.todayMessages)}</strong>
+            <span>Recorded Messages</span>
+            <strong>{number(whatsappMessages)}</strong>
           </div>
           <div>
             <span>Documents Today</span>
@@ -410,4 +431,3 @@ export default function ManagementReports({
     </div>
   );
 }
-

@@ -768,7 +768,7 @@ function Dashboard({
         <div className="section-heading">
           <div>
             <h2>Lead Pipeline</h2>
-            <p>Current visible cases by lifecycle stage</p>
+            <p>{whatsappPreLeads.length} WhatsApp pre-leads awaiting qualification · formal applications by lifecycle stage below</p>
           </div>
           <Chip tone="gray">
             {connected ? "Google Sheets · live" : "No data connection"}
@@ -1086,7 +1086,7 @@ function LeadTable({
                   <td>
                     <b className="score">{lead.score}</b>
                   </td>
-                  <td>{lead.updated}</td>
+                  <td>{displayTime(lead.updated)}</td>
                   <td>
                     <button
                       className="row-action"
@@ -3588,6 +3588,16 @@ function ModulePage({
       queueRows: data.LMS_Submission_Queue || [],
       resultRows: data.LMS_Credit_Result || [],
     });
+    const approachingLms = buildApplicationRegister(filteredLeads, data)
+      .filter((item) => !["LMS", "POST_APPROVAL", "COMPLETE"].includes(item.phase))
+      .map((item) => ({
+        "Lead ID": item.lead.id,
+        "Lead Name": item.lead.name,
+        Phase: item.phase,
+        "Next Requirement": item.blocker,
+        "Documents": `${item.documents.completed}/${item.documents.total}`,
+        "Qualification": `${item.qualification.completed}/${item.qualification.total}`,
+      }));
     return (
       <div className="content-stack">
         <SummaryStrip
@@ -3606,6 +3616,18 @@ function ModulePage({
             },
             { label: "Approved", value: lmsStatus.summary.approved },
           ]}
+        />
+        <RecordTable
+          title="Cases Approaching LMS"
+          rows={approachingLms}
+          columns={[
+            { label: "Customer", keys: ["Lead Name", "Lead ID"] },
+            { label: "Current phase", keys: ["Phase"] },
+            { label: "Qualification", keys: ["Qualification"] },
+            { label: "Documents", keys: ["Documents"] },
+            { label: "Next requirement", keys: ["Next Requirement"] },
+          ]}
+          onOpenLead={openRow}
         />
         <RecordTable
           title="Internal LMS Submission Queue"
@@ -3904,6 +3926,7 @@ function ManualApplication({
   const [leadId, setLeadId] = useState(initialLead?.id || "");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [applicationStep, setApplicationStep] = useState(0);
   const [files, setFiles] = useState<Record<string, File | undefined>>({});
   const [uploaded, setUploaded] =
     useState<Record<string, string>>(existingDocuments);
@@ -4028,7 +4051,14 @@ function ManualApplication({
         </div>
         <Chip tone="blue">{user?.role?.toUpperCase() || "SECURE"}</Chip>
       </div>
-      <div className="form-section">
+      <nav className="application-steps" aria-label="Application progress">
+        {["Customer", "Employment & Loan", "Documents", "Review"].map((label, index) => (
+          <button key={label} type="button" className={applicationStep === index ? "active" : applicationStep > index ? "complete" : ""} onClick={() => setApplicationStep(index)}>
+            <span>{applicationStep > index ? "✓" : index + 1}</span>{label}
+          </button>
+        ))}
+      </nav>
+      <div className={`form-section application-step ${applicationStep === 0 ? "active" : ""}`}>
         <h3>Customer</h3>
         <div className="form-grid">
           <label>
@@ -4069,7 +4099,7 @@ function ManualApplication({
           </label>
         </div>
       </div>
-      <div className="form-section">
+      <div className={`form-section application-step ${applicationStep === 1 ? "active" : ""}`}>
         <h3>Qualification & Pre-LMS Credit Inputs</h3>
         <p className="section-note">
           These fields are saved to Conversation_State for the deterministic
@@ -4276,7 +4306,7 @@ function ManualApplication({
           </label>
         </div>
       </div>
-      <div className="form-section">
+      <div className={`form-section application-step ${applicationStep === 2 ? "active" : ""}`}>
         <h3>Customer Documents</h3>
         <p className="section-note">
           Files are stored securely in LoanBuddy SharePoint. PDF, JPG or PNG
@@ -4325,6 +4355,16 @@ function ManualApplication({
           ))}
         </div>
       </div>
+      <div className={`form-section application-step application-review ${applicationStep === 3 ? "active" : ""}`}>
+        <h3>Review & Submit</h3>
+        <p className="section-note">Review the customer information and selected documents. Submission will check every required field and clearly show anything still missing.</p>
+        <div className="application-review-grid">
+          <div><strong>Customer details</strong><span>Name, phone, IC and branch</span></div>
+          <div><strong>Qualification</strong><span>Income, employment, commitments and requested loan</span></div>
+          <div><strong>Required documents</strong><span>{documentSlots.filter((slot) => slot.required && (files[slot.type] || uploaded[slot.type])).length}/{documentSlots.filter((slot) => slot.required).length} selected or uploaded</span></div>
+          <div><strong>Next step</strong><span>Submit for document verification and credit readiness checks</span></div>
+        </div>
+      </div>
       {message && (
         <div
           className={
@@ -4347,9 +4387,10 @@ function ManualApplication({
         >
           Save Draft + Files
         </button>
-        <button type="submit" disabled={busy}>
-          {busy ? "Saving…" : "Submit for Verification"}
-        </button>
+        <div className="application-step-actions">
+          {applicationStep > 0 && <button type="button" className="secondary" disabled={busy} onClick={() => setApplicationStep((step) => Math.max(0, step - 1))}>Back</button>}
+          {applicationStep < 3 ? <button type="button" disabled={busy} onClick={() => setApplicationStep((step) => Math.min(3, step + 1))}>Continue</button> : <button type="submit" disabled={busy}>{busy ? "Saving…" : "Submit for Verification"}</button>}
+        </div>
       </div>
     </form>
   );
@@ -4467,6 +4508,10 @@ function FollowUpSettingsManagement({ user }: { user?: CrmUser }) {
             onChange={(event) => { update("enabled", event.target.checked); setConfirmEnable(false); }} />
           <strong>{settings.enabled ? "ENGINE ON" : "ENGINE OFF"}</strong>
         </label>
+      </section>
+      <section className={`follow-up-runtime-status ${settings.enabled ? "is-on" : "is-off"}`}>
+        <strong>{loadingSettings ? "Checking automation status…" : settings.enabled ? "Automatic reminders are enabled" : "Automatic reminders are currently OFF"}</strong>
+        <span>{settings.enabled ? "Eligible inactive customers can enter the saved reminder sequence during the approved sending window." : "No automatic reminder will be sent. You can still edit and save the timing below, then enable the master switch when ready."}</span>
       </section>
       <section className="panel follow-up-editor">
         <div className="table-toolbar">
@@ -5754,6 +5799,10 @@ export default function Home() {
       ? customers
       : customers.filter((lead) => lead.branch === branch);
   }, [branch, datedData, filteredLeads]);
+  const whatsappPreLeadCustomers = useMemo(() => {
+    const formalIds = new Set(dashboardLeads.map((lead) => lead.id));
+    return workQueueCustomers.filter((lead) => !formalIds.has(lead.id));
+  }, [dashboardLeads, workQueueCustomers]);
   const actionCenter = useMemo(
     () =>
       buildActionCenter({
@@ -5864,7 +5913,7 @@ export default function Home() {
           ) : active === "Dashboard" ? (
             <Dashboard
               filteredLeads={dashboardLeads}
-              conversationLeads={workQueueCustomers}
+              conversationLeads={whatsappPreLeadCustomers}
               onLead={openCustomer}
               connected={crm.connected}
             />
@@ -5876,6 +5925,7 @@ export default function Home() {
           ) : active === "Reports" ? (
             <ManagementReports
               leads={dashboardLeads.map((lead) => lead.raw)}
+              conversationLeads={whatsappPreLeadCustomers}
               data={datedData}
               connected={crm.connected}
               stale={crm.stale}
@@ -5925,7 +5975,7 @@ export default function Home() {
           ) : (
             <ModulePage
               active={active}
-              filteredLeads={filteredLeads}
+              filteredLeads={active === "LMS Status" ? workQueueCustomers : filteredLeads}
               onLead={openCustomer}
               connected={crm.connected}
               data={
