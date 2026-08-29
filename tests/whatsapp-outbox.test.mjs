@@ -77,3 +77,11 @@ test("handoff state prefers the exact lead and otherwise the latest row for the 
   assert.equal(findMatchingConversationRow(rows, { leadId: "NEW", phone: "60168968888" }).rowNumber, 3);
   assert.equal(findMatchingConversationRow(rows, { leadId: "UNKNOWN", phone: "0168968888" }).rowNumber, 3);
 });
+
+test("handoff state uses the latest duplicate row for the same lead", () => {
+  const rows = [
+    { rowNumber: 2, record: { "Lead ID": "L1", "Phone Number": "60168968888", "AI Status": "ACTIVE" } },
+    { rowNumber: 7, record: { "Lead ID": "L1", "Phone Number": "60168968888", "AI Status": "PAUSED_MANUAL" } },
+  ];
+  assert.equal(findMatchingConversationRow(rows, { leadId: "L1", phone: "60168968888" }).rowNumber, 7);
+});

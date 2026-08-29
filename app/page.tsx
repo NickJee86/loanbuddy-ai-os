@@ -2019,7 +2019,7 @@ function Customer360Workspace({
     shown.find((summary) => summary.lead.id === selectedId) || shown[0] || null;
   const conversationStateRows = data.Conversation_State || [];
   const state = selected
-    ? conversationStateRows.find((row) => row["Lead ID"] === selected.lead.id) ||
+    ? [...conversationStateRows].reverse().find((row) => row["Lead ID"] === selected.lead.id) ||
       [...conversationStateRows].reverse().find((row) => {
         const statePhone = pick(row, ["Phone Number", "WhatsApp Number", "Customer Phone", "Phone", "From"]).replace(/\D/g, "").replace(/^0/, "60");
         const selectedPhone = selected.lead.phone.replace(/\D/g, "").replace(/^0/, "60");
