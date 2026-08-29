@@ -118,8 +118,10 @@ export async function POST(request: NextRequest) {
     record["Human Owner"] = operation === "takeover" ? user.username : "";
     record["Next Action"] = operation === "takeover" ? "Human handling conversation" : "AI re-evaluate from latest customer state";
     record["Last Updated"] = now;
-    if (found) await writeSheetValues(sheetId, token, `Conversation_State!A${found.rowNumber}:${columnName(headers.length - 1)}${found.rowNumber}`, [recordRow(headers, record)]);
-    else await writeSheetValues(sheetId, token, `Conversation_State!A:${columnName(headers.length - 1)}`, [recordRow(headers, record)], true);
+    // Treat handoff changes as an append-only event stream. Conversation_State
+    // can contain duplicate and automation-managed rows, so mutating one row is
+    // not durable; every reader already resolves the latest matching record.
+    await writeSheetValues(sheetId, token, `Conversation_State!A:${columnName(headers.length - 1)}`, [recordRow(headers, record)], true);
     let cancelledMessages = 0;
     if (operation === "takeover") {
       const outboxValues = await readSheetValues(sheetId, token, "Message_Outbox!A1:Y");
