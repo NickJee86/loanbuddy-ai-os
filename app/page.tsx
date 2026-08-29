@@ -57,6 +57,7 @@ import { CONSENT_TEMPLATE } from "./consent-template.mjs";
 import WhatsAppConsole from "./whatsapp-console";
 import { DEFAULT_FOLLOW_UP_SETTINGS, readFollowUpSettings } from "./follow-up-control.mjs";
 import { canPerformFollowUpAction, followUpMetrics, followUpPriority } from "./follow-up-operations.mjs";
+import { deliveryOutcomeMetrics } from "./follow-up-runtime.mjs";
 
 type NavKey =
   | "New Application"
@@ -1386,6 +1387,7 @@ function FollowUpWorkspace({
   const [message, setMessage] = useState("");
   const [error, setError] = useState(false);
   const metrics = followUpMetrics(rows, renderNow) as { total: number; dueNow: number; paused: number; failed: number; finalStage: number };
+  const outcomes = deliveryOutcomeMetrics(rows) as { sent: number; delivered: number; read: number; replied: number; recovered: number; failed: number };
   const filtered = rows.filter((row) => {
     if (scope === "ALL") return true;
     if (scope === "DUE") return followUpPriority(row, renderNow) === "URGENT";
@@ -1464,6 +1466,14 @@ function FollowUpWorkspace({
         <button className={scope === "PAUSED" ? "active" : ""} onClick={() => setScope("PAUSED")}><strong>{metrics.paused}</strong><span>Paused</span></button>
         <button className={scope === "FAILED" ? "active" : ""} onClick={() => setScope("FAILED")}><strong>{metrics.failed}</strong><span>Failed</span></button>
         <button className={scope === "FINAL" ? "active" : ""} onClick={() => setScope("FINAL")}><strong>{metrics.finalStage}</strong><span>Final stage</span></button>
+      </div>
+      <div className="follow-up-delivery-summary" aria-label="Follow-up outcome funnel">
+        <span><strong>{outcomes.sent}</strong> Sent</span>
+        <span><strong>{outcomes.delivered}</strong> Delivered</span>
+        <span><strong>{outcomes.read}</strong> Read</span>
+        <span><strong>{outcomes.replied}</strong> Replied</span>
+        <span><strong>{outcomes.recovered}</strong> Recovered</span>
+        <span><strong>{outcomes.failed}</strong> Failed</span>
       </div>
       <div className="table-toolbar"><div><h2>Follow-up Actions</h2><p>{filtered.length} operational cases · actions are audited</p></div></div>
       <div className="table-scroll"><table><thead><tr><th>Priority</th><th>Customer</th><th>Type / stage</th><th>Next Action</th><th>Last / due</th><th>Status</th><th>Assigned</th><th>Actions</th></tr></thead>
