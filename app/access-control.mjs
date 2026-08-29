@@ -105,6 +105,8 @@ export function filterCrmDataForUser(user, rawData) {
         ? visibleLeads
         : tab === "Audit_Log" && canSeeUnlinkedOperationalRows
           ? rows
+        : canSeeUnlinkedOperationalRows && unlinkedCustomerActivityTabs.has(tab)
+          ? rows
         : rows.filter((row) => {
           if (row["Lead ID"] && visibleLeadIds.has(row["Lead ID"])) return true;
           const phone = normalizePhone(
@@ -113,12 +115,7 @@ export function filterCrmDataForUser(user, rawData) {
           if (phone && visiblePhones.has(phone)) return true;
           if (!row["Lead ID"] && !phone && canSeeUnlinkedOperationalRows)
             return true;
-          return Boolean(
-            !row["Lead ID"] &&
-              phone &&
-              canSeeUnlinkedOperationalRows &&
-              unlinkedCustomerActivityTabs.has(tab),
-          );
+          return false;
         }),
     ])
   );
