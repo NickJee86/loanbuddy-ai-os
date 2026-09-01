@@ -1,5 +1,11 @@
 export const OUTBOX_HEADERS = Object.freeze([
-  "Message ID", "Created Date", "Lead ID", "Lead Name", "Phone Number", "Branch ID", "Assigned Sales ID", "Message Type", "Message Content", "Send Status", "Send Date", "Remarks", "Channel", "Idempotency Key", "Assessment ID", "Language", "Attachment Type", "Attachment Reference", "Attachment File Name", "Consent Form ID", "Consent Version", "Delivery Status", "Scheduled Time", "Source", "External LMS Submission",
+  "Message ID", "Created Date", "Lead ID", "Lead Name", "Phone Number",
+  "Branch ID", "Assigned Sales ID", "Message Type", "Message Content",
+  "Send Status", "Send Date", "Remarks", "Channel", "Idempotency Key",
+  "Assessment ID", "Language", "Attachment Type", "Attachment Reference",
+  "Attachment File Name", "Consent Form ID", "Inbound WABA ID",
+  "Inbound Phone Number ID", "Inbound WhatsApp Number", "Sender Channel",
+  "External LMS Submission",
 ]);
 
 export const WHATSAPP_MEDIA_LIMITS = Object.freeze({
@@ -55,6 +61,16 @@ export function validateManualWhatsApp(input = {}) {
   return { ok: true, leadId, phone, message };
 }
 
+
+function routingFields(input = {}) {
+  return {
+    "Inbound WABA ID": String(input.inboundWabaId || input["Inbound WABA ID"] || "").trim(),
+    "Inbound Phone Number ID": String(input.inboundPhoneNumberId || input["Inbound Phone Number ID"] || "").trim(),
+    "Inbound WhatsApp Number": String(input.inboundWhatsAppNumber || input["Inbound WhatsApp Number"] || "").trim(),
+    "Sender Channel": String(input.senderChannel || input["Sender Channel"] || "WhatsApp Primary").trim(),
+  };
+}
+
 export function buildManualOutboxRecord(input = {}, now = new Date().toISOString(), id = crypto.randomUUID()) {
   const valid = validateManualWhatsApp(input);
   if (!valid.ok) throw new Error(valid.error);
@@ -69,7 +85,7 @@ export function buildManualOutboxRecord(input = {}, now = new Date().toISOString
     Language: String(input.language || "ms").trim().toLowerCase(), "Attachment Type": "",
     "Attachment Reference": "", "Attachment File Name": "", "Consent Form ID": "",
     "Consent Version": "", "Delivery Status": "QUEUED", "Scheduled Time": now,
-    Source: "CRM_MANUAL", "External LMS Submission": "NO",
+    Source: "CRM_MANUAL", ...routingFields(input), "External LMS Submission": "NO",
   };
 }
 
@@ -114,6 +130,6 @@ export function buildManualMediaOutboxRecord(input = {}, now = new Date().toISOS
     "Idempotency Key": String(input.idempotencyKey || messageId), "Assessment ID": "", Language: String(input.language || "ms").trim().toLowerCase(),
     "Attachment Type": valid.attachmentType, "Attachment Reference": String(input.mediaId || "").trim(), "Attachment File Name": valid.fileName,
     "Consent Form ID": "", "Consent Version": "", "Delivery Status": "ACCEPTED", "Scheduled Time": now,
-    Source: "CRM_MANUAL", "External LMS Submission": "NO",
+    Source: "CRM_MANUAL", ...routingFields(input), "External LMS Submission": "NO",
   };
 }
