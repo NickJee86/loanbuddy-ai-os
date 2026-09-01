@@ -81,8 +81,8 @@ export async function POST(request: NextRequest) {
         const detectedMime = detectSupportedDocumentMime(new Uint8Array(await mediaFile.arrayBuffer()));
         if (!detectedMime || detectedMime !== checked.mimeType) return NextResponse.json({ error: "The file content does not match its JPG, PNG or PDF type." }, { status: 400 });
         const isSecondary = routing.senderChannel === "WhatsApp Secondary";
-        const accessToken = (isSecondary ? process.env.WHATSAPP_SECONDARY_ACCESS_TOKEN : process.env.WHATSAPP_ACCESS_TOKEN)?.trim();
-        const phoneNumberId = (isSecondary ? process.env.WHATSAPP_SECONDARY_PHONE_NUMBER_ID : process.env.WHATSAPP_PHONE_NUMBER_ID)?.trim();
+        const accessToken = (isSecondary ? (process.env.WHATSAPP_SECONDARY_ACCESS_TOKEN || process.env.WHATSAPP_ACCESS_TOKEN) : process.env.WHATSAPP_ACCESS_TOKEN)?.trim();
+        const phoneNumberId = (isSecondary ? (process.env.WHATSAPP_SECONDARY_PHONE_NUMBER_ID || routing.inboundPhoneNumberId) : (process.env.WHATSAPP_PHONE_NUMBER_ID || routing.inboundPhoneNumberId))?.trim();
         const graphVersion = process.env.WHATSAPP_GRAPH_API_VERSION?.trim() || "v23.0";
         if (!accessToken || !phoneNumberId) return NextResponse.json({ error: "WhatsApp media sending is not configured on this deployment." }, { status: 503 });
         const upload = new FormData();
