@@ -94,22 +94,22 @@ export async function POST(request: NextRequest) {
         const sent = await fetch(`https://graph.facebook.com/${graphVersion}/${encodeURIComponent(phoneNumberId)}/messages`, { method: "POST", headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" }, body: JSON.stringify(payload) });
         const sentResult = await sent.json() as { messages?: Array<{ id?: string }>; error?: { message?: string } };
         if (!sent.ok || !sentResult.messages?.[0]?.id) throw new Error(sentResult.error?.message || `WhatsApp media send failed (${sent.status}).`);
-        const currentHeaders = (await readSheetValues(sheetId, token, "Message_Outbox!A1:Y1"))[0];
+        const currentHeaders = (await readSheetValues(sheetId, token, "Message_Outbox!A1:AC1"))[0];
         const headers = currentHeaders?.length ? currentHeaders : [...OUTBOX_HEADERS];
-        if (!currentHeaders?.length) await writeSheetValues(sheetId, token, "Message_Outbox!A1:Y1", [headers]);
+        if (!currentHeaders?.length) await writeSheetValues(sheetId, token, "Message_Outbox!A1:AC1", [headers]);
         const record = buildManualMediaOutboxRecord({ ...body, ...checked, leadId, mediaId: uploadResult.id, leadName: body.leadName || lead["Lead Name"] || lead.Name, branchId: body.branchId || lead["Branch ID"] || lead.Branch, salesId: body.salesId || lead["Assigned Sales ID"] || lead["Sales ID"], ...routing }, new Date().toISOString(), sentResult.messages[0].id) as Record<string, string>;
-        await writeSheetValues(sheetId, token, "Message_Outbox!A:Y", [recordRow(headers, record)], true);
+        await writeSheetValues(sheetId, token, "Message_Outbox!A:AC", [recordRow(headers, record)], true);
         await appendAudit(sheetId, token, "WHATSAPP_MANUAL_MEDIA_SENT", user.username, leadId, JSON.stringify({ messageId: sentResult.messages[0].id, attachmentType: checked.attachmentType, fileName: checked.fileName }));
         return NextResponse.json({ ok: true, messageId: sentResult.messages[0].id, status: "ACCEPTED", attachmentType: checked.attachmentType });
       }
       const checked = validateManualWhatsApp({ ...body, leadId, phone: body.phone || lead["Phone Number"] });
       if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 });
-      const currentHeaders = (await readSheetValues(sheetId, token, "Message_Outbox!A1:Y1"))[0];
+      const currentHeaders = (await readSheetValues(sheetId, token, "Message_Outbox!A1:AC1"))[0];
       const headers = currentHeaders?.length ? currentHeaders : [...OUTBOX_HEADERS];
-      if (!currentHeaders?.length) await writeSheetValues(sheetId, token, "Message_Outbox!A1:Y1", [headers]);
+      if (!currentHeaders?.length) await writeSheetValues(sheetId, token, "Message_Outbox!A1:AC1", [headers]);
       const phone = String(checked.phone || "");
       const record = buildManualOutboxRecord({ ...body, leadId, phone, leadName: body.leadName || lead["Lead Name"] || lead.Name, branchId: body.branchId || lead["Branch ID"] || lead.Branch, salesId: body.salesId || lead["Assigned Sales ID"] || lead["Sales ID"], ...routing }) as Record<string, string>;
-      await writeSheetValues(sheetId, token, "Message_Outbox!A:Y", [recordRow(headers, record)], true);
+      await writeSheetValues(sheetId, token, "Message_Outbox!A:AC", [recordRow(headers, record)], true);
       await appendAudit(sheetId, token, "WHATSAPP_MANUAL_QUEUED", user.username, leadId, JSON.stringify({ messageId: record["Message ID"], phone: `${phone.slice(0, 4)}***${phone.slice(-3)}` }));
       return NextResponse.json({ ok: true, messageId: record["Message ID"], status: "QUEUED" });
     }
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
     await writeSheetValues(sheetId, token, `Conversation_State!A:${columnName(headers.length - 1)}`, [recordRow(headers, record)], true);
     let cancelledMessages = 0;
     if (operation === "takeover") {
-      const outboxValues = await readSheetValues(sheetId, token, "Message_Outbox!A1:Y");
+      const outboxValues = await readSheetValues(sheetId, token, "Message_Outbox!A1:AC");
       const outboxHeaders = outboxValues[0] || [];
       const statusColumn = outboxHeaders.indexOf("Send Status");
       const deliveryColumn = outboxHeaders.indexOf("Delivery Status");

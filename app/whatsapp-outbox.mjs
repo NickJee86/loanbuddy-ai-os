@@ -6,6 +6,7 @@ export const OUTBOX_HEADERS = Object.freeze([
   "Attachment File Name", "Consent Form ID", "Inbound WABA ID",
   "Inbound Phone Number ID", "Inbound WhatsApp Number", "Sender Channel",
   "External LMS Submission",
+  "Consent Version", "Delivery Status", "Scheduled Time", "Source",
 ]);
 
 export const WHATSAPP_MEDIA_LIMITS = Object.freeze({
