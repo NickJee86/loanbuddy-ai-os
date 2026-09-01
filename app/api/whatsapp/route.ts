@@ -5,7 +5,7 @@ import { buildManualMediaOutboxRecord, buildManualOutboxRecord, buildWhatsAppMed
 import { detectSupportedDocumentMime } from "../../file-signature.mjs";
 
 export const runtime = "nodejs";
-type Body = { operation?: "send" | "send_media" | "takeover" | "resume_ai"; leadId?: string; leadName?: string; phone?: string; branchId?: string; salesId?: string; message?: string; language?: string; idempotencyKey?: string };
+type Body = { operation?: "send" | "send_media" | "takeover" | "resume_ai"; leadId?: string; leadName?: string; phone?: string; branchId?: string; salesId?: string; message?: string; language?: string; idempotencyKey?: string; inboundWabaId?: string; inboundPhoneNumberId?: string; inboundWhatsAppNumber?: string; senderChannel?: string };
 
 function canAccess(user: Awaited<ReturnType<typeof verifySession>>, lead: Record<string, string>) {
   if (!user || user.role === "readonly") return false;
@@ -58,6 +58,17 @@ export async function POST(request: NextRequest) {
       "Assigned Sales ID": "",
       Name: body.leadName || "WhatsApp User",
     };
+    const sourceRecord = leadRecord || [...preLeadRows].reverse().find((record) => {
+      const recordLeadId = String(record["Lead ID"] || "").trim();
+      const recordPhone = String(record["Phone Number"] || "").replace(/\D/g, "");
+      return recordLeadId === leadId || (requestedPhone && recordPhone === requestedPhone.replace(/\D/g, ""));
+    }) || {};
+    const routing = {
+      inboundWabaId: body.inboundWabaId || sourceRecord["Inbound WABA ID"] || lead["Inbound WABA ID"] || "",
+      inboundPhoneNumberId: body.inboundPhoneNumberId || sourceRecord["Inbound Phone Number ID"] || lead["Inbound Phone Number ID"] || "",
+      inboundWhatsAppNumber: body.inboundWhatsAppNumber || sourceRecord["Inbound WhatsApp Number"] || lead["Inbound WhatsApp Number"] || "",
+      senderChannel: body.senderChannel || sourceRecord["Sender Channel"] || lead["Sender Channel"] || "WhatsApp Primary",
+    };
     if (operation === "send" || operation === "send_media") {
       const stateValues = await readSheetValues(sheetId, token, "Conversation_State!A1:AZ");
       const conversation = findMatchingConversationRow(rowsToRecords(stateValues), { leadId, phone: requestedPhone })?.record;
@@ -69,8 +80,9 @@ export async function POST(request: NextRequest) {
         if (!checked.ok || !mediaFile) return NextResponse.json({ error: checked.error || "Please choose a file." }, { status: 400 });
         const detectedMime = detectSupportedDocumentMime(new Uint8Array(await mediaFile.arrayBuffer()));
         if (!detectedMime || detectedMime !== checked.mimeType) return NextResponse.json({ error: "The file content does not match its JPG, PNG or PDF type." }, { status: 400 });
-        const accessToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
-        const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
+        const isSecondary = routing.senderChannel === "WhatsApp Secondary";
+        const accessToken = (isSecondary ? process.env.WHATSAPP_SECONDARY_ACCESS_TOKEN : process.env.WHATSAPP_ACCESS_TOKEN)?.trim();
+        const phoneNumberId = (isSecondary ? process.env.WHATSAPP_SECONDARY_PHONE_NUMBER_ID : process.env.WHATSAPP_PHONE_NUMBER_ID)?.trim();
         const graphVersion = process.env.WHATSAPP_GRAPH_API_VERSION?.trim() || "v23.0";
         if (!accessToken || !phoneNumberId) return NextResponse.json({ error: "WhatsApp media sending is not configured on this deployment." }, { status: 503 });
         const upload = new FormData();
@@ -85,7 +97,7 @@ export async function POST(request: NextRequest) {
         const currentHeaders = (await readSheetValues(sheetId, token, "Message_Outbox!A1:Y1"))[0];
         const headers = currentHeaders?.length ? currentHeaders : [...OUTBOX_HEADERS];
         if (!currentHeaders?.length) await writeSheetValues(sheetId, token, "Message_Outbox!A1:Y1", [headers]);
-        const record = buildManualMediaOutboxRecord({ ...body, ...checked, leadId, mediaId: uploadResult.id, leadName: body.leadName || lead["Lead Name"] || lead.Name, branchId: body.branchId || lead["Branch ID"] || lead.Branch, salesId: body.salesId || lead["Assigned Sales ID"] || lead["Sales ID"] }, new Date().toISOString(), sentResult.messages[0].id) as Record<string, string>;
+        const record = buildManualMediaOutboxRecord({ ...body, ...checked, leadId, mediaId: uploadResult.id, leadName: body.leadName || lead["Lead Name"] || lead.Name, branchId: body.branchId || lead["Branch ID"] || lead.Branch, salesId: body.salesId || lead["Assigned Sales ID"] || lead["Sales ID"], ...routing }, new Date().toISOString(), sentResult.messages[0].id) as Record<string, string>;
         await writeSheetValues(sheetId, token, "Message_Outbox!A:Y", [recordRow(headers, record)], true);
         await appendAudit(sheetId, token, "WHATSAPP_MANUAL_MEDIA_SENT", user.username, leadId, JSON.stringify({ messageId: sentResult.messages[0].id, attachmentType: checked.attachmentType, fileName: checked.fileName }));
         return NextResponse.json({ ok: true, messageId: sentResult.messages[0].id, status: "ACCEPTED", attachmentType: checked.attachmentType });
@@ -96,7 +108,7 @@ export async function POST(request: NextRequest) {
       const headers = currentHeaders?.length ? currentHeaders : [...OUTBOX_HEADERS];
       if (!currentHeaders?.length) await writeSheetValues(sheetId, token, "Message_Outbox!A1:Y1", [headers]);
       const phone = String(checked.phone || "");
-      const record = buildManualOutboxRecord({ ...body, leadId, phone, leadName: body.leadName || lead["Lead Name"] || lead.Name, branchId: body.branchId || lead["Branch ID"] || lead.Branch, salesId: body.salesId || lead["Assigned Sales ID"] || lead["Sales ID"] }) as Record<string, string>;
+      const record = buildManualOutboxRecord({ ...body, leadId, phone, leadName: body.leadName || lead["Lead Name"] || lead.Name, branchId: body.branchId || lead["Branch ID"] || lead.Branch, salesId: body.salesId || lead["Assigned Sales ID"] || lead["Sales ID"], ...routing }) as Record<string, string>;
       await writeSheetValues(sheetId, token, "Message_Outbox!A:Y", [recordRow(headers, record)], true);
       await appendAudit(sheetId, token, "WHATSAPP_MANUAL_QUEUED", user.username, leadId, JSON.stringify({ messageId: record["Message ID"], phone: `${phone.slice(0, 4)}***${phone.slice(-3)}` }));
       return NextResponse.json({ ok: true, messageId: record["Message ID"], status: "QUEUED" });
